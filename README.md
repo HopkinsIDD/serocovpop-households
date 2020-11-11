@@ -5,7 +5,7 @@ Code to reproduce results from _SARS-COV-2 Household Transmission Insights from 
 In the `Stan/` directory are a series of different models we compared in the analyses. The models are as follows:
 
 | file name |model number | description |
-|-----------| ---|
+|-----------| ---| ----|
 | xxx.stan | 1 | age (infector), sex (infector), ... |  
     
 
