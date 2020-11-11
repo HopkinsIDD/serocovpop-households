@@ -1,4 +1,4 @@
-Code to reproduce results from _SARS-COV-2 Household Transmission Insights from Serological Surveys in Geneva, Switzerland_. 
+Code to reproduce results from _SARS-CoV-2 Household Transmission Insights from Serological Surveys in Geneva, Switzerland_. 
 
 ## Code Notes
 
@@ -17,6 +17,7 @@ In the `Stan/` directory are stan code for running a series of different models 
 | serosurvey-analysis-bq-sym-infector-2049ref.stan | 8 | sex (infectee), symptom (infector), age (infector) | 
 | serosurvey-analysis-bq-sym-infector.stan | 9 | age (infectee), sex (infectee), age (infector) | 
 
+Code that runs the stan models are in HHtrans_public.Rmd
 
 ## Data Notes
 We have included dummy data for in order to help users test the code. Data will be made available upon request by contacting azman@jhu.edu. 
