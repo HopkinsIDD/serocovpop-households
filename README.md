@@ -1,4 +1,4 @@
-Code to reproduce results from _SARS-CoV-2 Household Transmission Insights from Serological Surveys in Geneva, Switzerland_. 
+Code to reproduce results from _Household Transmission of SARS-COV-2: Insights from a Population-based Serological Survey_.
 
 ## Code Notes
 
@@ -21,3 +21,5 @@ The models are as follows:
 
 ## Data Notes
 We have included dummy data for in order to help users test the code. Data will be made available upon request by contacting azman@jhu.edu. 
+
+We have tried our best to make this code understandable and usable but please do get in touch if you spot an issue or have a question. 
