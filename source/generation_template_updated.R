@@ -1,11 +1,6 @@
-## This file prepares template of generation matrix for differnt final sizes across
-## household sizes
-
-# just a note, this assumes we know exactly who is infected in the HH,
-# they should add up to m_jk without the (k choose j) element in eq4 of 
-# Longini Koopman 1982
-
-
+## This file prepares a template of all possible sequences of
+## viral introductions and subsequent transmission events within household
+## for various final sizes j (aka total # infected in a HH) and household sizes k
 
 load.generation.comb <- function(){
   library(gtools)
@@ -88,8 +83,8 @@ load.generation.comb <- function(){
     return(output)
   }
   
-  
-  ## generate combinations from other j/k households
+  ## generate all possible sequence of viral intro and subsequent transmission events within hh from j/k households
+  ## j = number infected, k = hhsize
   
   m01 <- get_m0k(1)
   m02 <- get_m0k(2)
