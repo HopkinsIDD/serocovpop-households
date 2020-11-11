@@ -1,6 +1,6 @@
 ---
-title: "HHtrans_public"
-author: "Qifang Bi"
+title: "Household Transmission of SARS-COV-2 in Geneva: Primary Analyses"
+author: "Qifang Bi et al"
 date: "10/3/2020"
 output: html_document
 ---
