@@ -58,7 +58,7 @@ load.generation.comb <- function(){
     return(rc)
   }
   
-  # creat input to stan based on output of assign_gens
+  # create input to stan based on output of assign_gens
   create_stan_input_kk_hh <- function(dat){
     gen <- as.vector(t(dat))
     inf_out <- as.vector(t(dat) == 0)
