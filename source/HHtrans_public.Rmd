@@ -518,9 +518,9 @@ bq_seropos_symp_infector_only <- readRDS(here("generated_data/HHtransdata/bq_ser
 bq_seropos_infector <- readRDS(here("generated_data/HHtransdata/bq_seropos_infector.Rds")) # model9
 
 # load sensitivity analysis
-bq_seropos_symp_contact_1d5 <- readRDS(here("generated_data/HHtransdata/bq_seropos_renduit_famavg_sym_agecat_1d5.Rds"))
-bq_seropos_symp_contact_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_renduit_famavg_sym_agecat_first6.Rds"))
-bq_seropos_symp_contact_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_renduit_famavg_sym_agecat_last6.Rds"))
+bq_seropos_symp_contact_1d5 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_1d5.Rds"))
+bq_seropos_symp_contact_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_first6.Rds"))
+bq_seropos_symp_contact_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_last6.Rds"))
 bq_seropos_ageonly_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_first6.Rds"))
 bq_seropos_ageonly_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_last6.Rds"))
 ```
