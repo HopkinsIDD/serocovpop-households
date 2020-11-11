@@ -2,12 +2,20 @@ Code to reproduce results from _SARS-COV-2 Household Transmission Insights from 
 
 ## Code Notes
 
-In the `Stan/` directory are a series of different models we compared in the analyses. The models are as follows:
+In the `Stan/` directory are stan code for running a series of different models we compared in the analyses. The models are as follows:
 
 | file name |model number | description |
 |-----------| ---| ----|
-| xxx.stan | 1 | age (infector), sex (infector), ... |  
-    
+| serosurvey-analysis-bq.stan | 0 | null model |
+| serosurvey-analysis-bq.stan | 1 | age (infectee) |  
+| serosurvey-analysis-bq.stan | 2 | age (infectee), sex (infectee) |
+| serosurvey-analysis-bq.stan | 3 | age (infectee), sex (infectee), age and sex interaction term (infectee) |
+| serosurvey-analysis-bq-sym.stan | 4 | age (infectee), sex (infectee), symptom (infector) |
+| serosurvey-analysis-bq-sym-contact.stan | 5 | age (infectee), sex (infectee), symptom (infector), reduced extra-hh contact (infectee) |
+| serosurvey-analysis-bq-sym-contact.stan | 6 | age (infectee), sex (infectee), symptom (infector), reduced extra-hh contact (infectee), extra-hh contact freq (infectee), symptom (infector) |
+| serosurvey-analysis-bq-sym-infector-2049ref.stan | 7 | age (infectee), sex (infectee), symptom (infector), age (infector) | 
+| serosurvey-analysis-bq-sym-infector-2049ref.stan | 8 | sex (infectee), symptom (infector), age (infector) | 
+| serosurvey-analysis-bq-sym-infector.stan | 9 | age (infectee), sex (infectee), age (infector) | 
 
 
 ## Data Notes
