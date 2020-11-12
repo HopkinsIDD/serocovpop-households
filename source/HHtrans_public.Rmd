@@ -219,7 +219,7 @@ sero_dat_1d5 <- dat_full %>%
 
 source(here("source/generation_template_updated.R"))
 sero_dat_expand_1d5 <- load.generation.comb() %>% as.data.frame() %>%
-  left_join(sero_dat_1d5 %>% 
+  inner_join(sero_dat_1d5 %>% 
               arrange(hh_size,hh_inf_n,Household_codbar,-pos) %>%
               group_by(Household_codbar) %>%
               mutate(ind_id = 1:n()) %>%
@@ -412,8 +412,6 @@ bq_seropos_infector <- run_analysis_bq_infector(bq_model=bq_model_infector,
                                        pars=c("beta_Q","beta_B","alpha0509","alpha1019","alpha5064",
                                               "alpha65up","infoutsymasymsize","log_lik"))
 
-
-
 # the rest are other models in sensitivity analysis that are presented in 
 # supplemental figures, but not presented in supplemental table 2
 # model 5, but change IgG seropositive cutoff to 1.5 (results shown in figure s2)
@@ -460,11 +458,12 @@ bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_
 
 # model 5, but restrict data to last 6 weeks (results shown in figure s3)
 hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
+if(length(hh_del)==0) {hh_del<-0}
 bq_seropos_symp_contact_last6 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
                                                                     dat_expand=sero_dat_expand %>% 
                                                                       mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
                                                                       mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                                                      filter(Household_codbar!=hh_del) %>%
+                                                                      filter(!Household_codbar%in%hh_del) %>%
                                                                       filter(as.character(week)>6),
                                                                     coef_eqn="sex + age_cat",
                                                                     coef_eqn1="sex + age_cat + age2064:reduit_famavg + age65up:reduit_famavg",
