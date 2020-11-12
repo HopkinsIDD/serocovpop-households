@@ -631,7 +631,7 @@ ggarrange(epi_curve1 + theme(axis.text.x=element_blank(), plot.margin = unit(c(5
           epi_curve2 + theme( plot.margin = unit(c(0,5.5,1,5.5),"pt")), nrow=2, align="v", labels=c("A","B"),
           heights=c(2,1),label.y = c(1,1.3)) #4,5
 
-ggsave(here("figures/fig1_epi_curve.pdf"),width=5,height=4)
+#ggsave(here("figures/fig1_epi_curve.pdf"),width=5,height=4)
 ```
 
 
@@ -720,7 +720,7 @@ plot.dat %>%
 
 
   #6x6.5
-ggsave(here("figures/fig3_prob.pdf"),width=6.5,height=6)
+#ggsave(here("figures/fig3_prob.pdf"),width=6.5,height=6)
 ```
 
 ### Figure 4. OR of full model
@@ -828,7 +828,7 @@ ggarrange( ggarrange(pOR_4age + coord_flip(), pOR_4sex + coord_flip(), nrow=2,al
            ggarrange(pOR_4contact + coord_flip(), pOR_4sym + coord_flip(), nrow=2,align="v", heights = c(3,2),labels=c("C","D")),
            ncol=2,  widths = c(6,3), align='h'
            ) #4,9
-ggsave(here("figures/fig4_OR_main.pdf"),width=9,height=4)
+#ggsave(here("figures/fig4_OR_main.pdf"),width=9,height=4)
 ```
 
 ### SFigure 1. frequency by household size
@@ -889,7 +889,7 @@ pHH_c <- sero_dat %>% group_by(Household_codbar) %>% mutate(hh_inf_n = sum(pos))
   
 ggarrange(pHH_a, pHH_b, pHH_c  , 
           labels = c("A","B","C"), nrow=3, align="v", heights = c(4,4,6), label.y = c(1,1,1.05)) #64
-ggsave(here("figures/fig2_hhcomp.pdf"),width=4,height=6)
+#ggsave(here("figures/fig2_hhcomp.pdf"),width=4,height=6)
 ```
 
 
@@ -1001,7 +1001,7 @@ ggdraw() +
   draw_plot(ggarrange(p1 + guides(fill=FALSE) + theme(axis.text.x=element_blank(), axis.title.x=element_blank()), p2, nrow=2, align="v",heights=c(5,6), labels="C"), 0,0, width=1, height=0.5) #6x9
 
 
-ggsave(here("figures/Sfig1_table1.pdf"),width=9,height=6)
+#ggsave(here("figures/Sfig1_table1.pdf"),width=9,height=6)
 
 ```
 
@@ -1383,7 +1383,7 @@ ggarrange( ggarrange(pOR_4age_1d5 + coord_flip(), pOR_4sex_1d5 + coord_flip(), n
                      labels=c("C","D"), common.legend = T, legend = "right"),
            ncol=2,  widths = c(6,5), align='h') #4,9
 
-ggsave(here("figures/sfig3_OR_cutoffonly.pdf"),width=9,height=4)
+#ggsave(here("figures/sfig3_OR_cutoffonly.pdf"),width=9,height=4)
 ```
 
 ### SFigure 4. OR figure by weeks
@@ -1546,7 +1546,7 @@ ggarrange( ggarrange(pOR_4age_firstlast6 + coord_flip(), pOR_4sex_firstlast6 + c
                      labels=c("C","D"), common.legend = T, legend = "right"),
            ncol=2,  widths = c(6,4), align='h') #4,9
 
-ggsave(here("figures/sfig4_OR_weeks.pdf"),width=9,height=4)
+#ggsave(here("figures/sfig4_OR_weeks.pdf"),width=9,height=4)
 ```
 
 ### SFigure 5. Prob of infection by weeks
@@ -1646,7 +1646,7 @@ plot.dat.week %>%
   xlab("Age group in years")
   #6x6.5
 
-ggsave(here("figures/sfig5_prob_weeks.pdf"),width=6.5,height=6)
+#ggsave(here("figures/sfig5_prob_weeks.pdf"),width=6.5,height=6)
 ```
 
 ### SFigure 6. Proportion of infections from outside
@@ -1691,7 +1691,7 @@ data.frame(inf=1-out_dat,hhsize="combined") %>%
   geom_errorbar(aes(x=hhsize, ymax=up, ymin=low), width=.3) + ylim(0,50)+
   theme_bw() + xlab("household size") + ylab("% infections that occurred\nwithin a household (%)") 
 
-ggsave(here("figures/sfig6_extrahhinf.pdf"),width=5,height=3.5)
+#ggsave(here("figures/sfig6_extrahhinf.pdf"),width=5,height=3.5)
 
 ```
 
