@@ -2,7 +2,8 @@ Code to reproduce results from _Household Transmission of SARS-COV-2: Insights f
 
 ## Code Notes
 
-In the `Stan/` directory are stan code for running a series of different models we compared in the analyses. Code that runs the stan models are in HHtrans_public.Rmd.
+In the `Stan/` directory are stan code for running a series of different models we compared in the analyses. Code that runs the stan models are in HHtrans_public.Rmd. _Note_ that generated data are saved using [git-lfs](https://www.atlassian.com/git/tutorials/git-lfs) so if you want them locally you need to use `git lfs pull`.
+
 The models are as follows:
 
 | file name |model number | description |
