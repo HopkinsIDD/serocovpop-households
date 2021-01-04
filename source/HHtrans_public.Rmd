@@ -1,6 +1,6 @@
 ---
-title: "Household Transmission of SARS-COV-2 in Geneva: Primary Analyses"
-author: "Qifang Bi et al"
+title: "Household Transmission of SARS-CoV-2: Insights from a Population-based Serological Survey"
+author: "Qifang Bi, Andrew Azman, Justin Lessler"
 date: "10/3/2020"
 output: html_document
 ---
@@ -12,11 +12,12 @@ knitr::opts_chunk$set(echo = FALSE,message = FALSE,error = FALSE,warning = FALSE
 if (!require('here')) install.packages('here'); library('here')
 ```
 
-```{R housekeeping}
+```{R housekeeping, include=F}
+memory.limit(size=600000)
 ## stan options
 n_chains <- 1
-n_iter <- 10 #1000 for the manuscipt
-n_warmup <- 5 #250 for the manuscipt
+n_iter <- 100 #1000 for the manuscript
+n_warmup <- 25 #250 for the manuscript
 n_treedepth <- 20
 age_cuts <- c(5,10,20,50,65,105)
 ## set reference categories
@@ -30,18 +31,20 @@ reload_source()
 
 ```{r load_data}
 ## cleaned household serosurvey data for replicating results in the manuscript
-#dat_full <-  read.csv(here("generated_data/dat_full.csv")) 
-
+#dat_full <-  read.csv(here("generated_data/dat_full.csv"),stringsAsFactors=FALSE) 
+#dat_full_kids <-  read.csv(here("generated_data/dat_full_withkids.csv"),stringsAsFactors=FALSE) 
+#dat_full_all <-  read.csv(here("generated_data/dat_full_all.csv"),stringsAsFactors=FALSE) 
 ## dummy data
-dat_full <- read.csv(here("data/dummy_dat_full.csv"))
+dat_full <- read.csv(here("data/dummy_dat_full.csv"),stringsAsFactors=FALSE)
+dat_full_kids <- dat_full # real dat_full and dat_full_kids are not the same. 
+dat_full_all <- dat_full # real dat_full and dat_full_kids are not the same.
 ```
-
 
 ```{r staninput_main_analysis}
 # format the cleaned input data in a way that is ready for stan model
 sero_dat <- dat_full %>% 
   mutate(pos=1*IgG_pos, # turn logi to numeric
-         symptom_any_mod = ifelse(pos==0|debut_symptom==1|debut_symptom==0, 0, symptom_any)) %>% # symptomatic and seropositive + having symptom
+         symptom_any_mod = ifelse(pos==0, 0, ifelse(is.na(symptom_any), 1, symptom_any))) %>% # symptomatic and seropositive + having symptom
   group_by(Household_codbar) %>%
   mutate(hh_size = n(),
          hh_inf_n = sum(pos),
@@ -53,9 +56,9 @@ sero_dat <- dat_full %>%
          symptom_any_mod, symptom_any,
          nr_personnes_rencon_famavg,reduit_famavg,
          nr_personnes_rencon,reduit_personnes_rencon,
-         debut_symptom) %>% 
-  mutate(sex = relevel(as.factor(sex), sex_ref), 
-         age_cat = relevel(as.factor(age_cat), age_ref)) 
+         debut_symptom_within2wk) %>% 
+  mutate(sex = factor(sex), age_cat = factor(age_cat,levels = c("5-9","10-19","20-49","50-64","65+"))) %>%
+  mutate(sex = relevel(sex, sex_ref), age_cat = relevel(age_cat, age_ref)) 
 
 
 # expand the dataset incorpating all possible sequences of viral intro and subsequent infection events within hh
@@ -191,14 +194,12 @@ sero_dat_expand <- sero_dat_expand %>% mutate(inf_in_n_sym = inf_in_n_sym,
 
 ```
 
+```{r staninput_symptom_sensitivity_analysis}
+# similar to main analyses, but only consider those who reported symptoms more than two weeks before blood draw as symptomatic infections
 
-```{r staninput_sensitivity_analysis}
-# similar to what we did above but change seropositivity cutoff
-# format the cleaned input data in a way that is ready for stan model
-sero_dat_1d5 <- dat_full %>% 
-  mutate(IgG_pos_1d5 = IgG_Ratio > 1.5) %>%
-  mutate(pos=1*IgG_pos_1d5, # turn logi to numeric
-         symptom_any_mod = ifelse(pos==0|debut_symptom==1|debut_symptom==0, 0, symptom_any)) %>% # symptomatic and seropositive + having symptom
+sero_dat_sym <- dat_full %>% 
+  mutate(pos=1*IgG_pos, # turn logi to numeric
+         symptom_any_mod = ifelse(pos==0|debut_symptom_within2wk==1, 0, symptom_any)) %>% # symptomatic and seropositive + having symptom
   group_by(Household_codbar) %>%
   mutate(hh_size = n(),
          hh_inf_n = sum(pos),
@@ -210,9 +211,165 @@ sero_dat_1d5 <- dat_full %>%
          symptom_any_mod, symptom_any,
          nr_personnes_rencon_famavg,reduit_famavg,
          nr_personnes_rencon,reduit_personnes_rencon,
-         debut_symptom) %>% 
-  mutate(sex = relevel(as.factor(sex), sex_ref), 
-         age_cat = relevel(as.factor(age_cat), age_ref)) 
+         debut_symptom_within2wk) %>% 
+  mutate(sex = factor(sex), age_cat = factor(age_cat,levels = c("5-9","10-19","20-49","50-64","65+"))) %>%
+  mutate(sex = relevel(sex, sex_ref), age_cat = relevel(age_cat, age_ref)) 
+
+
+# expand the dataset incorpating all possible sequences of viral intro and subsequent infection events within hh
+source(here("source/generation_template_updated.R"))
+sero_dat_sym_expand <- load.generation.comb() %>% as.data.frame() %>%
+  inner_join(sero_dat_sym %>% 
+              arrange(hh_size,hh_inf_n,Household_codbar,-pos) %>%
+              group_by(Household_codbar) %>%
+              mutate(ind_id = 1:n()) %>%
+              ungroup(), 
+            by = c("hh_inf_n", "hh_size",	"ind_id",	"pos"))
+
+# now add a few variables
+# number of symptomatically infected household members in the immediate generation before individual "i" was infected
+inf_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_sym_expand)){
+    inf_in_n_sym <- c(inf_in_n_sym, 
+                      sum(
+                        (sero_dat_sym_expand$gen[i] == (sero_dat_sym_expand$gen +1))  & 
+                          (sero_dat_sym_expand$symptom_any_mod==1)  & 
+                          (sero_dat_sym_expand$set[i] == sero_dat_sym_expand$set) & 
+                          (sero_dat_sym_expand$Household_codbar[i] == sero_dat_sym_expand$Household_codbar), na.rm=T
+      )
+    )
+}
+
+# number of symptomatically infected household members that individual "i" avoided infection from up to the generation before "i" was infected in
+avoid_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_sym_expand)){
+    avoid_in_n_sym <- c(avoid_in_n_sym, 
+                      sum(
+                        (sero_dat_sym_expand$gen[i] > (sero_dat_sym_expand$gen+1) )  & 
+                          (sero_dat_sym_expand$symptom_any_mod==1)  & 
+                          (sero_dat_sym_expand$set[i] == sero_dat_sym_expand$set) & 
+                          (sero_dat_sym_expand$Household_codbar[i] == sero_dat_sym_expand$Household_codbar)
+      )
+    )
+}
+
+# number of symptomatically infected household members in the immediate generation before individual "i" was infected
+# but by age group of the infectors
+get_inf_in_n_sym_age <- function(sym,age){
+  dat_out <- c()
+  for (i in 1:nrow(sero_dat_sym_expand)){
+    dat_out <- c(dat_out, 
+                      sum(
+                        (sero_dat_sym_expand$gen[i] == (sero_dat_sym_expand$gen +1))  & 
+                          (sero_dat_sym_expand$symptom_any_mod==sym)  & 
+                          (sero_dat_sym_expand$age_cat==age)  & 
+                          (sero_dat_sym_expand$set[i] == sero_dat_sym_expand$set) & 
+                          (sero_dat_sym_expand$Household_codbar[i] == sero_dat_sym_expand$Household_codbar), na.rm=T
+      )
+    )
+  }
+  return(dat_out)
+}
+
+
+inf_in_n_sym_0509 <- get_inf_in_n_sym_age(1,"5-9")
+inf_in_n_sym_1019 <- get_inf_in_n_sym_age(1,"10-19")
+inf_in_n_sym_2049 <- get_inf_in_n_sym_age(1,"20-49")
+inf_in_n_sym_5064 <- get_inf_in_n_sym_age(1,"50-64")
+inf_in_n_sym_65up <- get_inf_in_n_sym_age(1,"65+")
+
+
+# number of symptomatically infected household members that individual "i" avoided infection from up to the generation before "i" was infected in
+# by age group of the potential infectors
+
+get_avoid_in_n_sym_age <- function(sym,age_group){
+  dat_out <- c()
+  for (i in 1:nrow(sero_dat_sym_expand)){
+    dat_out <- c(dat_out, 
+                      sum(
+                        (sero_dat_sym_expand$gen[i] > (sero_dat_sym_expand$gen+1) )  & 
+                          (sero_dat_sym_expand$symptom_any_mod==sym)  & 
+                          (sero_dat_sym_expand$age_cat==age_group)  & 
+                          (sero_dat_sym_expand$set[i] == sero_dat_sym_expand$set) & 
+                          (sero_dat_sym_expand$Household_codbar[i] == sero_dat_sym_expand$Household_codbar)
+      )
+    )
+  }
+  return(dat_out)
+}
+
+avoid_in_n_sym_0509 <- get_avoid_in_n_sym_age(1,"5-9")
+avoid_in_n_sym_1019 <- get_avoid_in_n_sym_age(1,"10-19")
+avoid_in_n_sym_2049 <- get_avoid_in_n_sym_age(1,"20-49")
+avoid_in_n_sym_5064 <- get_avoid_in_n_sym_age(1,"50-64")
+avoid_in_n_sym_65up <- get_avoid_in_n_sym_age(1,"65+")
+
+
+# number of ASYMPTOMATICALLY infected household members in the immediate generation before individual "i" was infected
+# but by age group of the infectors
+inf_in_n_asym_0509 <- get_inf_in_n_sym_age(0,"5-9")
+inf_in_n_asym_1019 <- get_inf_in_n_sym_age(0,"10-19")
+inf_in_n_asym_2049 <- get_inf_in_n_sym_age(0,"20-49")
+inf_in_n_asym_5064 <- get_inf_in_n_sym_age(0,"50-64")
+inf_in_n_asym_65up <- get_inf_in_n_sym_age(0,"65+")
+
+# number of ASYMPTOMATICALLY infected household members that individual "i" avoided infection from before the generation "i" was infected in
+# but by age group of the potential infectors
+avoid_in_n_asym_0509 <- get_avoid_in_n_sym_age(0,"5-9")
+avoid_in_n_asym_1019 <- get_avoid_in_n_sym_age(0,"10-19")
+avoid_in_n_asym_2049 <- get_avoid_in_n_sym_age(0,"20-49")
+avoid_in_n_asym_5064 <- get_avoid_in_n_sym_age(0,"50-64")
+avoid_in_n_asym_65up <- get_avoid_in_n_sym_age(0,"65+")
+
+
+sero_dat_sym_expand <- sero_dat_sym_expand %>% mutate(inf_in_n_sym = inf_in_n_sym, 
+                                              inf_in_n_asym =inf_in_n - inf_in_n_sym, 
+                                              avoid_in_n_sym = avoid_in_n_sym, 
+                                              avoid_in_n_asym = avoid_in_n - avoid_in_n_sym,
+                                              inf_in_n_sym_0509 = inf_in_n_sym_0509,  
+                                              inf_in_n_asym_0509 = inf_in_n_asym_0509, 
+                                              avoid_in_n_sym_0509 = avoid_in_n_sym_0509, 
+                                              avoid_in_n_asym_0509 =  avoid_in_n_asym_0509,
+                                              inf_in_n_sym_1019 = inf_in_n_sym_1019,  
+                                              inf_in_n_asym_1019 = inf_in_n_asym_1019, 
+                                              avoid_in_n_sym_1019 = avoid_in_n_sym_1019, 
+                                              avoid_in_n_asym_1019 = avoid_in_n_asym_1019,
+                                              inf_in_n_sym_2049 = inf_in_n_sym_2049,  
+                                              inf_in_n_asym_2049 = inf_in_n_asym_2049, 
+                                              avoid_in_n_sym_2049 = avoid_in_n_sym_2049, 
+                                              avoid_in_n_asym_2049 = avoid_in_n_asym_2049,
+                                              inf_in_n_sym_5064 = inf_in_n_sym_5064,  
+                                              inf_in_n_asym_5064 = inf_in_n_asym_5064, 
+                                              avoid_in_n_sym_5064 = avoid_in_n_sym_5064, 
+                                              avoid_in_n_asym_5064 =  avoid_in_n_asym_5064,
+                                              inf_in_n_sym_65up = inf_in_n_sym_65up,  
+                                              inf_in_n_asym_65up = inf_in_n_asym_65up, 
+                                              avoid_in_n_sym_65up = avoid_in_n_sym_65up, 
+                                              avoid_in_n_asym_65up = avoid_in_n_asym_65up)
+
+```
+
+```{r staninput_sensitivity_analysis_iggcutoff}
+# similar to main analyses, but seropositivity cutoff is different
+
+sero_dat_1d5 <- dat_full %>% 
+  mutate(IgG_pos_1d5 = IgG_Ratio > 1.5) %>%
+  mutate(pos=1*IgG_pos_1d5, # turn logi to numeric
+         symptom_any_mod = ifelse(pos==0, 0, ifelse(is.na(symptom_any), 1, symptom_any))) %>% # symptomatic and seropositive + having symptom
+  group_by(Household_codbar) %>%
+  mutate(hh_size = n(),
+         hh_inf_n = sum(pos),
+         hh_sym_n = sum(symptom_any_mod)
+         ) %>%
+  replace_na(list(hh_inf_n = 0)) %>% 
+  select(Household_codbar, codbar_entry, week, datededebut,
+         sex, age_cat, hh_size, hh_inf_n, hh_sym_n, pos, 
+         symptom_any_mod, symptom_any,
+         nr_personnes_rencon_famavg,reduit_famavg,
+         nr_personnes_rencon,reduit_personnes_rencon,
+         debut_symptom_within2wk) %>% 
+  mutate(sex = factor(sex), age_cat = factor(age_cat,levels = c("5-9","10-19","20-49","50-64","65+"))) %>%
+  mutate(sex = relevel(sex, sex_ref), age_cat = relevel(age_cat, age_ref)) 
 
 
 # expand rows for the households with at least 1 infected HH members
@@ -258,8 +415,139 @@ sero_dat_expand_1d5 <- sero_dat_expand_1d5 %>% mutate(inf_in_n_sym = inf_in_n_sy
 
 ```
 
-### generate stan model output for all 9 models + other sensitivity analyses
-```{r model output}
+```{r staninput_sensitivity_analysis_withkids}
+# similar to main analyses, but include households only missing serostatus of kids 0-4yro
+
+sero_dat_withkids <- dat_full_kids %>% 
+  mutate(pos=1*IgG_pos, # turn logi to numeric
+         symptom_any_mod = ifelse(pos==0, 0, ifelse(is.na(symptom_any), 1, symptom_any))) %>% # symptomatic and seropositive + having symptom
+  group_by(Household_codbar) %>%
+  mutate(hh_size = n(),
+         hh_inf_n = sum(pos),
+         hh_sym_n = sum(symptom_any_mod)
+         ) %>%
+  replace_na(list(hh_inf_n = 0)) %>% 
+  select(Household_codbar, codbar_entry, week, datededebut,
+         sex, age_cat, hh_size, hh_inf_n, hh_sym_n, pos, 
+         symptom_any_mod, symptom_any,
+         nr_personnes_rencon_famavg,reduit_famavg,
+         nr_personnes_rencon,reduit_personnes_rencon,
+         debut_symptom_within2wk) %>% 
+  mutate(sex = factor(sex), age_cat = factor(age_cat,levels = c("5-9","10-19","20-49","50-64","65+"))) %>%
+  mutate(sex = relevel(sex, sex_ref), age_cat = relevel(age_cat, age_ref)) 
+
+
+# expand rows for the households with at least 1 infected HH members
+
+source(here("source/generation_template_updated.R"))
+sero_dat_expand_withkids <- load.generation.comb() %>% as.data.frame() %>%
+  inner_join(sero_dat_withkids %>% 
+              arrange(hh_size,hh_inf_n,Household_codbar,-pos) %>%
+              group_by(Household_codbar) %>%
+              mutate(ind_id = 1:n()) %>%
+              ungroup(), 
+            by = c("hh_inf_n", "hh_size",	"ind_id",	"pos"))
+
+# create variables related to symptom presentation
+inf_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_expand_withkids)){
+    inf_in_n_sym <- c(inf_in_n_sym, 
+                      sum(
+                        (sero_dat_expand_withkids$gen[i] == (sero_dat_expand_withkids$gen +1))  & 
+                          (sero_dat_expand_withkids$symptom_any_mod==1)  & 
+                          (sero_dat_expand_withkids$set[i] == sero_dat_expand_withkids$set) & 
+                          (sero_dat_expand_withkids$Household_codbar[i] == sero_dat_expand_withkids$Household_codbar), na.rm=T
+      )
+    )
+}
+
+avoid_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_expand_withkids)){
+    avoid_in_n_sym <- c(avoid_in_n_sym, 
+                      sum(
+                        (sero_dat_expand_withkids$gen[i] > (sero_dat_expand_withkids$gen+1) )  & 
+                          (sero_dat_expand_withkids$symptom_any_mod==1)  & 
+                          (sero_dat_expand_withkids$set[i] == sero_dat_expand_withkids$set) & 
+                          (sero_dat_expand_withkids$Household_codbar[i] == sero_dat_expand_withkids$Household_codbar)
+      )
+    )
+}
+
+
+sero_dat_expand_withkids <- sero_dat_expand_withkids %>% mutate(inf_in_n_sym = inf_in_n_sym, inf_in_n_asym = inf_in_n - inf_in_n_sym, 
+                                              avoid_in_n_sym = avoid_in_n_sym, avoid_in_n_asym = avoid_in_n - avoid_in_n_sym)
+
+
+```
+
+```{r staninput_sensitivity_analysis_all}
+# include all enrolled individuals
+
+sero_dat_all <- dat_full_all %>% 
+  filter(!is.na(IgG_pos),!is.na(reduit_famavg)) %>%
+  mutate(pos=1*IgG_pos, # turn logi to numeric
+         symptom_any_mod = ifelse(pos==0, 0, ifelse(is.na(symptom_any), 1, symptom_any))) %>% # symptomatic and seropositive + having symptom
+  group_by(Household_codbar) %>%
+  mutate(hh_size = n(),
+         hh_inf_n = sum(pos),
+         hh_sym_n = sum(symptom_any_mod)
+         ) %>%
+  replace_na(list(hh_inf_n = 0)) %>% 
+  select(Household_codbar, codbar_entry, week, datededebut,
+         sex, age_cat, hh_size, hh_inf_n, hh_sym_n, pos, 
+         symptom_any_mod, symptom_any,
+         nr_personnes_rencon_famavg,reduit_famavg,
+         nr_personnes_rencon,reduit_personnes_rencon,
+         debut_symptom_within2wk) %>% 
+  mutate(sex = factor(sex), age_cat = factor(age_cat,levels = c("5-9","10-19","20-49","50-64","65+"))) %>%
+  mutate(sex = relevel(sex, sex_ref), age_cat = relevel(age_cat, age_ref)) 
+
+
+# expand rows for the households with at least 1 infected HH members
+
+source(here("source/generation_template_updated.R"))
+sero_dat_expand_all <- load.generation.comb() %>% as.data.frame() %>%
+  inner_join(sero_dat_all %>% 
+              arrange(hh_size,hh_inf_n,Household_codbar,-pos) %>%
+              group_by(Household_codbar) %>%
+              mutate(ind_id = 1:n()) %>%
+              ungroup(), 
+            by = c("hh_inf_n", "hh_size",	"ind_id",	"pos"))
+
+# create variables related to symptom presentation
+inf_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_expand_all)){
+    inf_in_n_sym <- c(inf_in_n_sym, 
+                      sum(
+                        (sero_dat_expand_all$gen[i] == (sero_dat_expand_all$gen +1))  & 
+                          (sero_dat_expand_all$symptom_any_mod==1)  & 
+                          (sero_dat_expand_all$set[i] == sero_dat_expand_all$set) & 
+                          (sero_dat_expand_all$Household_codbar[i] == sero_dat_expand_all$Household_codbar), na.rm=T
+      )
+    )
+}
+
+avoid_in_n_sym <- c()
+for (i in 1:nrow(sero_dat_expand_all)){
+    avoid_in_n_sym <- c(avoid_in_n_sym, 
+                      sum(
+                        (sero_dat_expand_all$gen[i] > (sero_dat_expand_all$gen+1) )  & 
+                          (sero_dat_expand_all$symptom_any_mod==1)  & 
+                          (sero_dat_expand_all$set[i] == sero_dat_expand_all$set) & 
+                          (sero_dat_expand_all$Household_codbar[i] == sero_dat_expand_all$Household_codbar)
+      )
+    )
+}
+
+
+sero_dat_expand_all <- sero_dat_expand_all %>% mutate(inf_in_n_sym = inf_in_n_sym, inf_in_n_asym = inf_in_n - inf_in_n_sym, 
+                                              avoid_in_n_sym = avoid_in_n_sym, avoid_in_n_asym = avoid_in_n - avoid_in_n_sym)
+
+
+```
+
+### First generate stan model output for all 9 models + other sensitivity analyses
+```{r model output, eval=F}
 # model 0, B,Q do not adjust for individual characteristics
 bq_model <- stan_model(here("Stan/serosurvey-analysis-bq.stan"))
 bq_seropos_null <- run_analysis_bq(bq_model=bq_model,
@@ -331,10 +619,10 @@ bq_model_contact_sym <- stan_model(here("Stan/serosurvey-analysis-bq-sym-contact
 hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
 if(length(hh_del)==0) {hh_del}
 bq_seropos_symp_contact <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
-                                                                    dat_expand=sero_dat_expand %>% 
-                                                                      mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                                                      mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                                                      filter(!Household_codbar%in%hh_del),
+                                                       dat_expand=sero_dat_expand %>%
+                                                         mutate(age2064 = ifelse(age_cat %in%
+                                                                                   c("20-49","50-64"),1,0)) %>%
+                                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) %>%                filter(!Household_codbar%in%hh_del),
                                                                     coef_eqn="sex + age_cat",
                                                                     coef_eqn1="sex + age_cat + 
                                                                     age2064:reduit_famavg + age65up:reduit_famavg",
@@ -344,7 +632,7 @@ bq_seropos_symp_contact <- run_analysis_bq_sym_contact(bq_model=bq_model_contact
                                                                     control=list(max_treedepth=n_treedepth),
                                                                     save_warmup=F,
                                                                     save_stan=T, 
-                                                                    pars=c("beta_B","beta_Q","alpha_sym",
+                                                                    pars=c("beta_B","beta_Q","alpha_sym","max_gen",
                                                                            "infoutsymasymsize","log_lik"))
 
 # model 6,  B,Q adjust for age and sex; Q additionally adjusts for symptom of potential infectors; B additionally adjusts for "reduced contact since outbreak started" and "# of extra-HH contacts", but separately for those 20-49 and 65+ yo
@@ -412,9 +700,11 @@ bq_seropos_infector <- run_analysis_bq_infector(bq_model=bq_model_infector,
                                        pars=c("beta_Q","beta_B","alpha0509","alpha1019","alpha5064",
                                               "alpha65up","infoutsymasymsize","log_lik"))
 
-# the rest are other models in sensitivity analysis that are presented in 
-# supplemental figures, but not presented in supplemental table 2
-# model 5, but change IgG seropositive cutoff to 1.5 (results shown in figure s2)
+
+
+# the rest are sensitivity analyses that are presented in 
+# supplemental figures/tables, but not presented in supplemental table 2
+# model 5, but change IgG seropositive cutoff to 1.5 (results shown in figure s4)
 
 hh_del <- sero_dat_expand_1d5 %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
 if(length(hh_del)==0) {hh_del<-0}
@@ -435,7 +725,7 @@ bq_seropos_symp_contact_1d5 <- run_analysis_bq_sym_contact(bq_model=bq_model_con
                                                                     pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
-# model 5, but restrict data to first 6 weeks (results shown in figure s3)
+# model 5, but restrict data to first 6 weeks (results shown in figure s5)
 hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
 if(length(hh_del)==0) {hh_del<-0}
 bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
@@ -456,7 +746,7 @@ bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_
                                                                     pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
-# model 5, but restrict data to last 6 weeks (results shown in figure s3)
+# model 5, but restrict data to last 6 weeks (results shown in figure s5)
 hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
 if(length(hh_del)==0) {hh_del<-0}
 bq_seropos_symp_contact_last6 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
@@ -501,11 +791,69 @@ bq_seropos_ageonly_last6 <- run_analysis_bq(bq_model=bq_model,
                                       save_stan=T, pars=c("beta_B","beta_Q","log_lik"))
 
 
+
+# model 5, but change definition of symptomatic cases to only those showing symptoms more than two weeks before enrollment
+
+
+hh_del <- sero_dat_sym_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
+if(length(hh_del)==0) {hh_del<-0}
+bq_seropos_symp_contact_2wk <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
+                                       dat_expand=sero_dat_sym_expand %>% 
+                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
+                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
+                                         filter(Household_codbar!=hh_del),
+                                       coef_eqn="sex + age_cat",
+                                       coef_eqn1="sex + age_cat + 
+                                       age2064:reduit_famavg + age65up:reduit_famavg",
+                                       chains=n_chains,
+                                       iter=n_iter,
+                                       warmup=n_warmup,
+                                       control=list(max_treedepth=n_treedepth),
+                                       save_warmup=F,
+                                       save_stan=T,
+                                       pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
+
+# model 5, but including households only missing serostatus of 0-4 years old
+hh_del <- sero_dat_expand_withkids %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
+if(length(hh_del)==0) {hh_del<-0}
+bq_seropos_symp_contact_withkids <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
+                                       dat_expand=sero_dat_expand_withkids %>% 
+                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
+                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
+                                         filter(Household_codbar!=hh_del),
+                                       coef_eqn="sex + age_cat",
+                                       coef_eqn1="sex + age_cat + 
+                                       age2064:reduit_famavg + age65up:reduit_famavg",
+                                       chains=n_chains,
+                                       iter=n_iter,
+                                       warmup=n_warmup,
+                                       control=list(max_treedepth=n_treedepth),
+                                       save_warmup=F,
+                                       save_stan=T,
+                                       pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
+
+
+# model 5, but include all enrolled households
+bq_seropos_symp_contact_all <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
+                                       dat_expand=sero_dat_expand_all %>% 
+                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
+                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) ,
+                                       coef_eqn="sex + age_cat",
+                                       coef_eqn1="sex + age_cat + 
+                                       age2064:reduit_famavg + age65up:reduit_famavg",
+                                       chains=n_chains,
+                                       iter=n_iter,
+                                       warmup=n_warmup,
+                                       control=list(max_treedepth=n_treedepth),
+                                       save_warmup=F,
+                                       save_stan=T,
+                                       pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
+
 ```
 
 
 ### or, load pregenerated stan model output 
-```{r load model output, eval=F}
+```{r load model output}
 # load model output 1-9
 bq_seropos_null <- readRDS(here("generated_data/HHtransdata/bq_seropos_null.Rds")) # model0
 bq_seropos_ageonly <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly.Rds")) # model1
@@ -524,10 +872,13 @@ bq_seropos_symp_contact_first6 <- readRDS(here("generated_data/HHtransdata/bq_se
 bq_seropos_symp_contact_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_last6.Rds"))
 bq_seropos_ageonly_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_first6.Rds"))
 bq_seropos_ageonly_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_last6.Rds"))
+bq_seropos_symp_contact_2wk <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_2wk.Rds")) 
+bq_seropos_symp_contact_withkids <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_withkids.Rds")) 
+bq_seropos_symp_contact_all <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_all.Rds")) 
 ```
 
 
-### Figure 1. epidemic curve
+### Figure 1. Epidemic curve and recruitment period
 ```{r fig1, fig.height = 4, fig.width = 5}
 # get epi curve data
 epidat <- read.csv(here("data/epicurve.csv")) %>% dplyr::select(ï..date, ncumul_conf) %>% rename(date = ï..date) %>%
@@ -635,8 +986,9 @@ ggarrange(epi_curve1 + theme(axis.text.x=element_blank(), plot.margin = unit(c(5
 ```
 
 
-### Figure 3. Probability of infection
-```{r fig3, fig.height = 6, fig.width = 6.5}
+### Figure 2. Estimated median probability of infection
+
+```{r fig2, fig.height = 6, fig.width = 7.5}
 # logit of B and Q based on sex+age model
 bq_pars_seropos <- rstan::extract(bq_seropos$stan_est)
 age59= c(1,0,0,0,0); age1019= c(0,1,0,0,0); age5064=c(0,0,0,1,0); age65 =c(0,0,0,0,1);
@@ -699,32 +1051,35 @@ nulldata <- c(inv.logit(logitB_null),sex="Male", age_cat="Combined",BQ="Extra-ho
 plot.dat %>% 
   #mutate(age_cat = fct_relevel(age_cat, "5-9","10-19","20-49","50-64","65+", "Combined"))%>%
   ggplot(aes(x=age_cat, y=100*(1-`50%`), color=sex, group=sex)) + 
-  geom_point(position=position_dodge(width = .8)) + 
-  geom_errorbar(aes(x=age_cat, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`)), width=.3, position=position_dodge(width=0.8)) + 
+  geom_point(position=position_dodge(width = 0.9)) + 
+  geom_errorbar(aes(x=age_cat, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`)), width=.3, position=position_dodge(width=0.9)) + 
   facet_wrap(vars(BQ), nrow=2, scales = "free") + 
   scale_y_continuous(name = "probability of being infected (%)") + theme_bw() +
   geom_text(data=plot.dat %>%
-            mutate(avg_f=signif(100*(1-`50%`),2)),
-            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.3,hjust=-0.2,
-            position=position_dodge(width=0.8), size=3.3,show_guide = F) +
-  scale_color_manual(#labels=c("female","male","combined"),
-                     values=c("#fc8d62","#66c2a5","darkgrey")) +
+            #mutate(avg_f=signif(100*(1-`50%`),2)),
+            mutate(avg_f=formatC(100*(1-`50%`),digits=1,format="f")),
+            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.4,hjust=-0.1,
+            position=position_dodge(width=0.9), size=3.3,show_guide = F) +
+  scale_color_manual(values=c("#fc8d62","#66c2a5","darkgrey")) +
   theme(legend.position = c(0.87,0.9), legend.title = element_blank()) +
   geom_point(data=nulldata, aes(x=6,y=100*(1-`50%`), group=sex), color="darkgrey") +
-  geom_errorbar(data=nulldata, aes(x=6, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`), group=sex), color="darkgrey", width=.1, position=position_dodge(width=0.8)) +
+  geom_errorbar(data=nulldata, aes(x=6, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`), group=sex), color="darkgrey", width=.1, position=position_dodge(width=0.9)) +
   geom_text(data=nulldata %>%
-            mutate(avg_f=signif(100*(1-`50%`),2)),
-            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.3,hjust=-0.2,
-            position=position_dodge(width=0.8), size=3.3,show_guide = F, color="darkgrey") +
+            #mutate(avg_f=signif(100*(1-`50%`),2)),
+            mutate(avg_f=formatC(100*(1-`50%`),digits=1,format="f")),
+            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.4,hjust=-0.1,
+            position=position_dodge(width=0.9), size=3.3,show_guide = F, color="darkgrey") +
   xlab("Age group in years")
 
 
-  #6x6.5
-#ggsave(here("figures/fig3_prob.pdf"),width=6.5,height=6)
+  #6x7.5
+#ggsave(here("figures/fig2_prob.pdf"),width=7.5,height=6)
 ```
 
-### Figure 4. OR of full model
-```{r fig4, sfig.height = 4, fig.width = 9}
+
+### Figure 3. ORs of infection from the main model (model 5)
+
+```{r fig3, sfig.height = 4, fig.width = 9}
 
 pOR_1_data <-  
 summary(bq_seropos_symp_contact$stan_est, pars="beta_B")[[1]] %>% 
@@ -828,11 +1183,13 @@ ggarrange( ggarrange(pOR_4age + coord_flip(), pOR_4sex + coord_flip(), nrow=2,al
            ggarrange(pOR_4contact + coord_flip(), pOR_4sym + coord_flip(), nrow=2,align="v", heights = c(3,2),labels=c("C","D")),
            ncol=2,  widths = c(6,3), align='h'
            ) #4,9
-#ggsave(here("figures/fig4_OR_main.pdf"),width=9,height=4)
+#ggsave(here("figures/fig3OR_main.pdf"),width=9,height=4)
 ```
 
-### SFigure 1. frequency by household size
-```{r fig2, fig.height = 6, fig.width = 4}
+
+### SFigure 2. Frequency of households of different sizes in the study, proportion seropositive by household size, and distribution of the number of seropositive people in household by size
+
+```{r sfig2, fig.height = 6, fig.width = 4}
 ## households size and color by # infected in each
 pHH_a <- sero_dat %>% group_by(Household_codbar) %>% slice(1) %>% ungroup() %>%
   group_by(hh_size) %>% tally() %>% ungroup() %>%
@@ -889,13 +1246,12 @@ pHH_c <- sero_dat %>% group_by(Household_codbar) %>% mutate(hh_inf_n = sum(pos))
   
 ggarrange(pHH_a, pHH_b, pHH_c  , 
           labels = c("A","B","C"), nrow=3, align="v", heights = c(4,4,6), label.y = c(1,1,1.05)) #64
-#ggsave(here("figures/fig2_hhcomp.pdf"),width=4,height=6)
+#ggsave(here("figures/sfig2_hhcomp.pdf"),width=4,height=6)
 ```
 
+### SFigure 3. Figure representation of Table 1
 
-### SFigure 2. Figure representation of Table 1
-
-```{r sfig1, fig.height = 6, fig.width = 9}
+```{r sfig3, fig.height = 6, fig.width = 9}
 
 #seropositive rate by age and household"
 tmp <- sero_dat %>% group_by(hh_size, age_cat) %>% tally() %>% left_join(
@@ -1001,11 +1357,11 @@ ggdraw() +
   draw_plot(ggarrange(p1 + guides(fill=FALSE) + theme(axis.text.x=element_blank(), axis.title.x=element_blank()), p2, nrow=2, align="v",heights=c(5,6), labels="C"), 0,0, width=1, height=0.5) #6x9
 
 
-#ggsave(here("figures/Sfig1_table1.pdf"),width=9,height=6)
+#ggsave(here("figures/sfig3_table1.pdf"),width=9,height=6)
 
 ```
 
-### Table 1.
+### Table 1. Number of recruited and seropositive individuals by age-group, sex and household size of the households they reside in.
 ```{r table1}
 
 #### HOUSEHOLD LEVEL numbers
@@ -1052,14 +1408,14 @@ table_long_overall <- tmp_long_overall %>%
 # function that generates seropositivty rate by hh size and another variable
 get_seropos_hh_by_var_dat <- function(myvar){
   tmp  <- sero_dat %>% 
-    mutate(symptom_any_mod = ifelse(debut_symptom==1|debut_symptom==0, 0, symptom_any))  %>%
+    mutate(symptom_any_mod = ifelse(debut_symptom_within2wk==1, 0, symptom_any))  %>%
     rename(my_var=all_of(myvar)) %>%
     mutate(hh_size = as.character(hh_size)) %>%
     mutate(hh_size = recode(hh_size, "5"="5+", "6"="5+","7"="5+")) %>%
     group_by(hh_size, my_var) %>% tally() %>%
     left_join(
       sero_dat %>% 
-        mutate(symptom_any_mod = ifelse(debut_symptom==1|debut_symptom==0, 0, symptom_any))  %>%
+        mutate(symptom_any_mod = ifelse(debut_symptom_within2wk==1, 0, symptom_any))  %>%
         rename(my_var=all_of(myvar)) %>%
         mutate(hh_size = as.character(hh_size)) %>%
         mutate(hh_size = recode(hh_size, "5"="5+", "6"="5+","7"="5+")) %>%
@@ -1097,13 +1453,13 @@ get_seropos_by_var_dat <- function(myvar){
   sero_dat %>%
     mutate(hh_size = as.character(hh_size)) %>%
     mutate(hh_size = recode(hh_size,"5"="5+", "6"="5+","7"="5+")) %>%
-    mutate(symptom_any_mod = ifelse(debut_symptom==1|debut_symptom==0, 0, symptom_any))  %>%
+    mutate(symptom_any_mod = ifelse(debut_symptom_within2wk==1, 0, symptom_any))  %>%
     rename(my_var=all_of(myvar)) %>%
     group_by(my_var) %>% tally() %>% 
     left_join(sero_dat %>% 
                 mutate(hh_size = as.character(hh_size)) %>%
                 mutate(hh_size = recode(hh_size,"5"="5+", "6"="5+","7"="5+")) %>%
-                mutate(symptom_any_mod = ifelse(debut_symptom==1|debut_symptom==0, 0, symptom_any))  %>%
+                mutate(symptom_any_mod = ifelse(debut_symptom_within2wk==1, 0, symptom_any))  %>%
                 rename(my_var=all_of(myvar)) %>%
                 filter(pos ==1) %>% 
                 group_by(my_var) %>% tally() %>% rename(n_pos = n),
@@ -1140,7 +1496,7 @@ l1 <- glm(pos~sex, data=sero_dat, "binomial")
 l2 <- glm(pos~age_cat, data=sero_dat, "binomial")
 l3 <- glm(pos~reduit_personnes_rencon, data=sero_dat, "binomial")
 l4 <- glm(pos~nr_personnes_rencon, data=sero_dat, "binomial")
-l5 <- glm(pos~symptom_any_mod, data= sero_dat %>%  mutate(symptom_any_mod = ifelse(debut_symptom==1|debut_symptom==0, 0, symptom_any)), "binomial" )
+l5 <- glm(pos~symptom_any_mod, data= sero_dat %>%  mutate(symptom_any_mod = ifelse(debut_symptom_within2wk==1, 0, symptom_any)), "binomial" )
 
 OR_table <- cbind(exp(coef(l1)),exp(confint(l1))) %>%
   rbind(cbind(exp(coef(l2)),exp(confint(l2)))) %>%
@@ -1234,9 +1590,9 @@ table1
 
 ```
 
-### SFigure 3. positivity definition, cutoff only
+### SFigure 4. sensitivity analyses, by sero-positivity definition
 
-```{r sfig3, fig.height = 5, fig.width = 9} 
+```{r sfig4, fig.height = 5, fig.width = 9} 
 
 
 pOR_1_data <-  
@@ -1383,12 +1739,12 @@ ggarrange( ggarrange(pOR_4age_1d5 + coord_flip(), pOR_4sex_1d5 + coord_flip(), n
                      labels=c("C","D"), common.legend = T, legend = "right"),
            ncol=2,  widths = c(6,5), align='h') #4,9
 
-#ggsave(here("figures/sfig3_OR_cutoffonly.pdf"),width=9,height=4)
+#ggsave(here("figures/sfig4_OR_cutoffonly.pdf"),width=9,height=4)
 ```
 
-### SFigure 4. OR figure by weeks
+### SFigure 5. sensitivity analyses, by enrollment week
 
-```{r sfig4, fig.height = 5, fig.width = 9}
+```{r sfig5, fig.height = 5, fig.width = 9}
 
 
 pOR_1_data_first6 <- summary(bq_seropos_symp_contact_first6$stan_est, pars="beta_B")[[1]] %>% 
@@ -1546,11 +1902,163 @@ ggarrange( ggarrange(pOR_4age_firstlast6 + coord_flip(), pOR_4sex_firstlast6 + c
                      labels=c("C","D"), common.legend = T, legend = "right"),
            ncol=2,  widths = c(6,4), align='h') #4,9
 
-#ggsave(here("figures/sfig4_OR_weeks.pdf"),width=9,height=4)
+#ggsave(here("figures/sfig5_OR_weeks.pdf"),width=9,height=4)
 ```
 
-### SFigure 5. Prob of infection by weeks
-```{r sfig5, fig.height = 6, fig.width = 6.5}
+### SFigure 6. sensitivity analyses, by definition of symptomatic infections
+
+```{r sfig6, fig.height = 5, fig.width = 9} 
+
+
+pOR_1_data <-  
+summary(bq_seropos_symp_contact$stan_est, pars="beta_B")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
+                 "age2064:reduced_contact", "age65+:reduced_contact")) %>%
+  filter(param!="Intercept") %>%
+  mutate(BQ="Extra-household transmission") %>%
+  bind_rows(
+    summary(bq_seropos_symp_contact$stan_est, pars="beta_Q")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
+      filter(param!="Intercept") %>%
+      mutate(BQ="Household transmission")
+  ) %>% 
+  bind_rows(
+    summary(bq_seropos_symp_contact$stan_est, pars="alpha_sym")[[1]] %>% 
+      as_tibble() %>% 
+      mutate(param=c("sym")) %>%
+      mutate(BQ="Household transmission")
+  ) %>%
+  # add reference
+  bind_rows(data.frame(param = "20-49", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "20-49", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "Female", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "Female", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "Asymptomatic", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "3 to 5", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "20-64no", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "65+no", BQ="Extra-household transmission")) %>%
+  replace_na(list(`50%` = 0)) 
+
+
+pOR_1_data_sens_2wk <- summary(bq_seropos_symp_contact_2wk$stan_est, pars="beta_B")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
+                 "age2064:reduced_contact", "age65+:reduced_contact")) %>%
+  filter(param!="Intercept") %>%
+  mutate(BQ="Extra-household transmission") %>%
+  bind_rows(
+    summary(bq_seropos_symp_contact_1d5$stan_est, pars="beta_Q")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
+      filter(param!="Intercept") %>%
+      mutate(BQ="Household transmission")
+  ) %>% 
+  bind_rows(
+    summary(bq_seropos_symp_contact_1d5$stan_est, pars="alpha_sym")[[1]] %>% 
+      as_tibble() %>% 
+      mutate(param=c("sym")) %>%
+      mutate(BQ="Household transmission")
+  ) %>%
+  # add reference
+  bind_rows(data.frame(param = "20-49", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "20-49", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "Female", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "Female", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "Asymptomatic", BQ="Household transmission")) %>%
+  bind_rows(data.frame(param = "3 to 5", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "20-64no", BQ="Extra-household transmission")) %>%
+  bind_rows(data.frame(param = "65+no", BQ="Extra-household transmission")) %>%
+  replace_na(list(`50%` = 0)) 
+
+
+pOR_1_data_combined_sens3 <- pOR_1_data %>% mutate(symptom_def="All symptomatic infections") %>% 
+  bind_rows(
+    pOR_1_data_sens_2wk %>% mutate(symptom_def="Only those with symptom onset\nover 2weeks from enrollment")
+  )
+
+## age
+pOR_4age_2wk <- pOR_1_data_combined_sens3 %>% filter(param %in%  c("5-9", "10-19", "20-49", "50-64", "65+")) %>%
+  mutate(param = fct_relevel(param, "65+", "50-64","20-49","10-19", "5-9")) %>%
+  ggplot(aes(x=param, y=1/exp(`50%`), group=symptom_def, color=symptom_def)) + 
+  geom_point(position=position_dodge(width=0.7),show.legend = FALSE) + 
+  geom_errorbar(aes(ymax=1/exp(`97.5%`), ymin=1/exp(`2.5%`)), width=.3, position=position_dodge(width=0.7)) +
+  facet_wrap(vars(BQ), ncol=2) + 
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_y_continuous(trans=log_trans(), name = "Odds ratio (log scale)",limits=c(0.03,10.1),
+                     breaks=c(0.0625/2, 0.0625, 0.125,0.25,0.5,1,2,4,8),labels = c("",6.25e-2,"",0.25,"",1,2,4,8)) +
+  xlab("Age groups (years)\n") + theme_bw() + 
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(), 
+        axis.text=element_text(size=7), axis.title = element_text(size=8), strip.text = element_text(size = 8)) + ylab("odds ratio (log scale)")
+
+## sex
+pOR_4sex_2wk <- pOR_1_data_combined_sens3 %>% filter(param %in% c("Female","Male")) %>%
+  mutate(param = fct_relevel(param, "Female","Male")) %>%
+  ggplot(aes(x=param, y=1/exp(`50%`), color=symptom_def, group=symptom_def)) + 
+  geom_point(position=position_dodge(width=0.7)) + 
+  geom_errorbar(aes(ymax=1/exp(`97.5%`), ymin=1/exp(`2.5%`)), width=.3, position=position_dodge(width=0.7)) +
+  facet_wrap(vars(BQ), ncol=2) + 
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_y_continuous(trans=log_trans(), 
+                     name = "Odds ratio (log scale)", limits=c(0.4,5.1),
+                     breaks=c(0.125,0.25,0.5,1,2,4,8),labels = c(0.125,0.25,0.5,1,2,4,8)) +
+  xlab("Sex\n") + theme_bw() + theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(),
+                                     axis.text=element_text(size=7), axis.title = element_text(size=8), 
+                                     strip.text = element_text(size = 8))
+
+## contact
+pOR_4contact_2wk <- pOR_1_data_combined_sens3 %>% filter(param %in% c("age2064:reduced_contact", "age65+:reduced_contact","65+no","20-64no")) %>% 
+  mutate(age_group = case_when(param=="age2064:reduced_contact" ~ "20-64",
+                               param=="20-64no" ~ "20-64",
+                               param=="age65+:reduced_contact" ~ "65+",
+                               param=="65+no" ~ "65+")) %>%
+  mutate(param = recode(param, "age2064:reduced_contact" = "yes", "age65+:reduced_contact" = "yes", 
+                        "65+no" = "no", "20-64no" = "no") ) %>%
+  mutate(param = fct_relevel(param, "no", "yes")) %>%
+  mutate(age_group = factor(age_group, levels= c("20-64","65+")))  %>%
+  ggplot(aes(x=param, y=1/exp(`50%`),  group=interaction(symptom_def,age_group), color=symptom_def, lty=age_group,shape=age_group)) +
+  geom_point(position=position_dodge(width=0.7)) + 
+  geom_errorbar(aes(ymax=1/exp(`97.5%`), ymin=1/exp(`2.5%`)), width=.3, position=position_dodge(width=0.7)) +
+  facet_wrap(vars(BQ), nrow=2) + 
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_y_continuous(trans=log_trans(), name = "Odds ratio (log scale)", limits=c(0.24,6),
+                     breaks=c(0.25, 0.5,1,2,4,8),labels = c(0.25,0.5,1,2,4,8)) +
+  xlab("reduced contacts") + theme_bw() + 
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(),legend.position=c(.7,.35), 
+        axis.text=element_text(size=7), axis.title = element_text(size=8), strip.text = element_text(size = 8),
+        legend.title=element_text(size=7), legend.text=element_text(size=8))  + 
+  scale_shape_manual(values=c(15, 17)) +
+  guides(col=guide_legend(title="Definition of symptomatic infections"))
+
+## symptom
+pOR_4sym_2wk <-  pOR_1_data_combined_sens3 %>% filter(param %in% c("Asymptomatic", "sym")) %>%
+  mutate(param = recode(param, "sym" = "yes", "Asymptomatic" ="no")) %>%
+  mutate(param = fct_relevel(param, "no", "yes")) %>%
+  ggplot(aes(x=param, y=1/exp(`50%`), group=symptom_def, color=symptom_def)) + geom_point(position=position_dodge(width=0.7),show.legend = FALSE) + 
+  geom_errorbar(aes(ymax=1/exp(`97.5%`), ymin=1/exp(`2.5%`)), width=.3, position=position_dodge(width=0.7)) +
+  facet_wrap(vars(BQ), nrow=2) + 
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_y_continuous(trans=log_trans(), name = "Odds ratio (log scale)", limits=c(0.05,18),
+                     breaks=c(0.0625,0.125,0.25,0.5,1,2,4,8,16),labels = c(0.0625,"",0.25,"",1,2,4,8,16)) +
+  xlab("infectors\nbeing symptomatic\n") + theme_bw() + theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(),
+                                                              axis.text=element_text(size=7), axis.title = element_text(size=8),
+                                                               strip.text = element_text(size = 8))
+
+
+
+ggarrange( ggarrange(pOR_4age_2wk + coord_flip(), pOR_4sex_2wk + coord_flip(), nrow=2,align="v", heights = c(3,2), 
+                     labels=c("A","B"), legend = "none"),
+           ggarrange(pOR_4contact_2wk + coord_flip(), pOR_4sym_2wk + coord_flip(), nrow=2,align="v", heights = c(3,2),
+                     labels=c("C","D"), common.legend = T, legend = "right"),
+           ncol=2,  widths = c(6,6), align='h') #4,9
+
+#ggsave(here("figures/sfig6_OR_2wksym.pdf"),width=9,height=4)
+```
+
+### SFigure 7. Prob of infection by weeks
+
+```{r sfig7, fig.height = 6, fig.width = 7.5}
 # logit of B and Q based on sex+age model
 # bq_pars_seropos <- extract(bq_seropos$stan_est)
 age59= c(1,0,0,0,0); age1019= c(0,1,0,0,0); age5064=c(0,0,0,1,0); age65 =c(0,0,0,0,1);
@@ -1633,24 +2141,25 @@ nulldata <- c(inv.logit(logitB_null),age_cat="Combined",BQ="Extra-household tran
 plot.dat.week %>% 
   #mutate(age_cat = fct_relevel(age_cat, "5-9","10-19","20-49","50-64","65+", "Combined"))%>%
   ggplot(aes(x=age_cat, y=100*(1-`50%`), color=weeks, group=weeks)) + 
-  geom_point(position=position_dodge(width = .8)) + 
-  geom_errorbar(aes(x=age_cat, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`)), width=.3, position=position_dodge(width=0.8)) + 
+  geom_point(position=position_dodge(width = .9)) + 
+  geom_errorbar(aes(x=age_cat, ymax=100*(1-`97.5%`), ymin=100*(1-`2.5%`)), width=.3, position=position_dodge(width=0.9)) + 
   facet_wrap(vars(BQ), nrow=2, scales = "free") + 
   scale_y_continuous(name = "probability of being infected (%)") + theme_bw() +
   geom_text(data=plot.dat.week %>% 
-            mutate(avg_f=signif(100*(1-`50%`),2)),
-            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.3,hjust=-0.2,
-            position=position_dodge(width=0.8), size=3.3,show_guide = F) +
+            mutate(avg_f=formatC(100*(1-`50%`),digits=1,format="f")), #signif(100*(1-`50%`),2)),
+            aes(x=age_cat,y=100*(1-`50%`), label=avg_f), vjust=-0.4,hjust=-0.1,
+            position=position_dodge(width=0.9), size=3.3,show_guide = F) +
   scale_color_manual(values=c("darkgrey","#fc8d62","#66c2a5")) +
   theme(legend.position = c(0.87,0.85)) +
   xlab("Age group in years")
-  #6x6.5
 
-#ggsave(here("figures/sfig5_prob_weeks.pdf"),width=6.5,height=6)
+
+#ggsave(here("figures/sfig7_prob_weeks.pdf"),width=6.5,height=6)
 ```
 
-### SFigure 6. Proportion of infections from outside
-```{r sfig6, fig.height=3.5, fig.width=5}
+### SFigure 8. Proportion of infections that occurred within a household of various household sizes
+
+```{r sfig8, fig.height=3.5, fig.width=5}
 
 bq_pars <- rstan::extract(bq_seropos_symp_contact$stan_est)
 
@@ -1691,11 +2200,59 @@ data.frame(inf=1-out_dat,hhsize="combined") %>%
   geom_errorbar(aes(x=hhsize, ymax=up, ymin=low), width=.3) + ylim(0,50)+
   theme_bw() + xlab("household size") + ylab("% infections that occurred\nwithin a household (%)") 
 
-#ggsave(here("figures/sfig6_extrahhinf.pdf"),width=5,height=3.5)
+#ggsave(here("figures/sfig7_extrahhinf.pdf"),width=5,height=3.5)
 
 ```
 
-### STable 1
+### SFigure 9. Distribution of the total number of transmission generations within a household by number of seropositives in a household.
+
+```{r sfig9, fig.height=3.5, fig.width=5}
+
+## or if max generation is pre generated
+bq_pars_seropos_symp_contact <- extract(bq_seropos_symp_contact$stan_est)
+gen <- bq_pars_seropos_symp_contact$max_gen
+hhcase <- bq_seropos_symp_contact$input_data %>%  distinct(household_id, hh_inf_n) %>% pull(hh_inf_n)
+
+g_dat2 <- matrix(nrow=3000,ncol=5) # max generation in HHsize of 2
+g_dat3 <- matrix(nrow=3000,ncol=5) # max generation for those in HHsize of 3
+g_dat4 <- matrix(nrow=3000,ncol=5) # max generation for those in HHsize of 4
+
+for (i in 1:total_iter){
+  tmp2 <- table(gen[i,][which(gen[i,]>=0 & hhcase==2)]) 
+  g_dat2[i,as.numeric(names(tmp2))+1] <- tmp2/sum(tmp2)
+  
+  tmp3 <- table(gen[i,][which(gen[i,]>=0 & hhcase==3)]) 
+  g_dat3[i,as.numeric(names(tmp3))+1] <- tmp3/sum(tmp3)
+  
+  tmp4 <- table(gen[i,][which(gen[i,]>=0 & hhcase==4)]) 
+  g_dat4[i,as.numeric(names(tmp4))+1] <- tmp4/sum(tmp4)
+  
+}
+
+data.frame(g=g_dat2,hhcase="2") %>% 
+  bind_rows(data.frame(g=g_dat3,hhcase="3")) %>% 
+  bind_rows(data.frame(g=g_dat4,hhcase="4")) %>%
+  `colnames<-`(c("0","1","2","3","4","hhcase")) %>%
+  gather(g,val,`0`:`4`) %>%
+  filter(as.numeric(g) < as.numeric(as.character(hhcase))) -> fs6dat
+
+# fs6dat %>% group_by(hhcase,g) %>% mutate(Q3=quantile(val)[4], Q1=quantile(val)[2]) %>% 
+#   mutate(IQR=Q3-Q1) %>% mutate(o_up=Q3+1.5*IQR,o_bo=Q1-1.5*IQR) %>%
+#   mutate(val = replace(val, o_up>val&o_bo<val, NA))  -> fs6dat_outlier
+
+fs6dat %>%
+  ggplot(aes(x=hhcase, y=val,fill=g)) + 
+  geom_boxplot(position = position_dodge(preserve = "single")) +
+  #geom_point(data=fs6dat_outlier, alpha=0.3, aes(x=hhcase, y=val,  col=g), position = position_jitterdodge())+
+  theme_bw() + xlab("number of seropositive members in a household") + 
+  ylab("% of households")  +
+  scale_fill_discrete(name = "total transmission\ngenerations")
+
+#ggsave(here("figures/sfig9_ghh.pdf"),width=5,height=3.5)
+
+```
+
+### STable 1. Household composition over the study period.
 ```{r stab1}
 
 sero_dat %>%
@@ -1745,7 +2302,8 @@ tmp_table1 %>%
                            "average HH size (IQR)"))
 ```
 
-### STable 2, model 1-3
+### STable 2. Outputs from models 1-3
+
 ```{r stab2a}
 # model 1
 
@@ -1838,7 +2396,7 @@ tbage %>% full_join(tqage, by="Category") %>% full_join(tbsexage, by="Category")
   add_header_above(c("", "Model 1;\nage"=2,"Model 2;\nage + sex"=2, "Model 3;\nage/sex interaction"=2))
 ```
 
-### STable 2, model 4-6
+### STable 2. Outputs models 4-6
 
 ```{r stab2b}
 
@@ -2020,7 +2578,9 @@ tbsymp %>% full_join(tqsymp %>% bind_rows(tasymp), by="Category") %>%
   add_header_above(c("", "Model 4:\nage + sex + symptom"=2, "Model 5:\nModel 4 + reduced contact"=2,
                     "Model 6:\nModel 4 + reduced contact + extra HH contacts"=2)) 
 ```
-## STable 2, model 7-9
+
+## STable 2. Outputs from models 7-9
+
 ```{r stab2c}
 # model 7
 #"age specific susceptibility + transmissibility, sex specific susceptibility"
@@ -2159,7 +2719,9 @@ tbinfector %>% full_join(tqinfector %>% bind_rows(tainfector), by="Category") %>
                      "Model 9:\nModel 2 + infectors' age"=2)) 
 ```
 
-### STable 2, model performance
+
+### STable 2. Model performance
+
 ```{r stab2waic}
   
 waic_output <- data.frame(model=c("model0","model1","model2","model3","model4","model5","model6","model7","model8","model9"),
@@ -2172,12 +2734,13 @@ waic_output <- data.frame(model=c("model0","model1","model2","model3","model4","
                                  waic(extract_log_lik(bq_seropos_symp_contact_freq$stan_est))$estimates["waic","Estimate"],
                                  waic(extract_log_lik(bq_seropos_symp_infector$stan_est))$estimates["waic","Estimate"],
                                  waic(extract_log_lik(bq_seropos_symp_infector_only$stan_est))$estimates["waic","Estimate"],
-                                 waic(extract_log_lik(bq_seropos_infector$stan_est))$estimates["waic","Estimate"]))
+                                 waic(extract_log_lik(bq_seropos_infector$stan_est))$estimates["waic","Estimate"])) %>%
+  mutate(delta_waic=waic-waic(extract_log_lik(bq_seropos_null$stan_est))$estimates["waic","Estimate"])
 
 waic_output %>% kable(linksep="") 
 ```
 
-### STable 3. attributable fraction calculation
+### STable 3. Attributable fraction of extra-household infections, within household infections by symptomatics, and within household infections by asymptomatics
 
 ```{r stab3}
 
@@ -2211,9 +2774,9 @@ get_table_out <- function(inputmodel){
   mytable <- data.frame(out=c(out_dat,out_dat2,out_dat3,out_dat4,out_dat5,sym_dat),
              hhsize=rep(c("all","2","3","4","5","asym"),each=total_iter)) %>% 
     group_by(hhsize) %>%
-    summarise(median=quantile(out,probs=0.5),
-              low=quantile(out,probs=0.025),
-              up=quantile(out,probs=0.975)) %>%
+    summarise(median=quantile(out,probs=0.5,na.rm=T),
+              low=quantile(out,probs=0.025,na.rm=T),
+              up=quantile(out,probs=0.975,na.rm=T)) %>%
     transmute(hhsize=hhsize,
               `% infected within (95% CI)` =
                 paste0(formatC(100-100*median,digits=1,format="f"), " (",
@@ -2251,7 +2814,8 @@ get_table_out(bq_seropos_null) %>%
 
 ```
 
-### STable 4. Numbers in fig 3
+### STable 4. Numbers in Fig 2
+
 ```{r stab4}
 # prob of escaping infection
 plot.dat  %>% filter(age_cat!="Combined") %>%
@@ -2316,5 +2880,152 @@ tca %>% left_join(tcm, by="Age group") %>%
   add_header_above(c("","Extra-household transmission (95%CI)"=3,"Household transmission"=3))
 ```
 
+### STable 6. Sensitivity analyses using expanded population and a different definition of symptomatic infection. 
+
+```{r stab6}
+
+# model 5...symptomatic infection definition
+#"reduce_contact only"
+
+#"beta-B"
+summary(bq_seropos_symp_contact_2wk$stan_est, pars="beta_B")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
+                 "age2064:reduced_contact", "age65+:reduced_contact")) %>% 
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tbreduce_sym
+  #knitr::kable(linesep="")
+
+#"beta_Q"
+summary(bq_seropos_symp_contact_2wk$stan_est, pars="beta_Q")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tqreduce_sym
+  #knitr::kable(linesep="")
+
+#"alpha_sym"
+summary(bq_seropos_symp_contact_2wk$stan_est, pars="alpha_sym")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("sym")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tareduce_sym
+  #knitr::kable(linesep="")
 
 
+
+
+
+
+
+# model 5...all households
+#"reduce_contact only"
+
+#"beta-B"
+summary(bq_seropos_symp_contact_all$stan_est, pars="beta_B")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
+                 "age2064:reduced_contact", "age65+:reduced_contact")) %>% 
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tbreduce_all
+  #knitr::kable(linesep="")
+
+#"beta_Q"
+summary(bq_seropos_symp_contact_all$stan_est, pars="beta_Q")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tqreduce_all
+  #knitr::kable(linesep="")
+
+#"alpha_sym"
+summary(bq_seropos_symp_contact_all$stan_est, pars="alpha_sym")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("sym")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tareduce_all
+  #knitr::kable(linesep="")
+
+
+
+
+
+# model 5 all households 
+#"reduce_contact only"
+
+#"beta-B"
+summary(bq_seropos_symp_contact_withkids$stan_est, pars="beta_B")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
+                 "age2064:reduced_contact", "age65+:reduced_contact")) %>% 
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tbreduce_withkids
+  #knitr::kable(linesep="")
+
+#"beta_Q"
+summary(bq_seropos_symp_contact_withkids$stan_est, pars="beta_Q")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tqreduce_withkids
+  #knitr::kable(linesep="")
+
+#"alpha_sym"
+summary(bq_seropos_symp_contact_withkids$stan_est, pars="alpha_sym")[[1]] %>% 
+  as_tibble() %>% 
+  mutate(param=c("sym")) %>%
+  transmute(Category=param,
+            `Coefficient estimate (95% CI)` = 
+              paste0(formatC(1/exp(`50%`),digits=1,format="f"), " (",
+                     formatC(1/exp(`97.5%`),digits=1,format="f"), ", ",
+                     formatC(1/exp(`2.5%`),digits=1,format="f"), ")")) -> tareduce_withkids
+  #knitr::kable(linesep="")
+
+
+
+
+tbreduce_withkids %>% full_join(tqreduce_withkids %>% bind_rows(tareduce_withkids), by="Category") %>% 
+  full_join(tbreduce_all, by="Category") %>% full_join(tqreduce_all %>% bind_rows(tareduce_all), by="Category") %>%
+  full_join(tbreduce_sym, by="Category") %>% full_join(tqreduce_sym %>% bind_rows(tareduce_sym), by="Category") %>%
+  full_join(tbreduce, by="Category") %>% full_join(tqreduce %>% bind_rows(tareduce), by="Category") %>% 
+  filter(Category != "Intercept") %>%
+  mutate(lineid = c(5,1,2,3,4,7,8,6)) %>%
+  arrange(lineid) %>% select(-lineid) %>%
+  `colnames<-`(c("Category","Odds Ratio (95% CI)","Odds Ratio (95% CI)", "Odds Ratio (95% CI)", "Odds Ratio (95% CI)",
+                 "Odds Ratio (95% CI)", "Odds Ratio (95% CI)")) %>% 
+  kable(linksep="") %>%
+  pack_rows("Age", 1, 4) %>%
+  pack_rows("Sex", 5, 5)  %>%
+  pack_rows("Symptomatic", 6,6) %>%
+  pack_rows("Reduced contact among 20-64 yo",7,7) %>% 
+  pack_rows("Reduced contact among 65+ yo",8,8) %>%
+  add_header_above(c("","Extra-household","Within Household","Extra-household","Within Household",
+                     "Extra-household","Within Household","Extra-household","Within Household")) %>%
+  add_header_above(c("", "Model 5:\nwith kids"=2, "Model 5:\nall household"=2, 
+                     "Model 5:\nsymptom def"=2, "Model 5:\nmain analysis"=2)) 
+
+```
