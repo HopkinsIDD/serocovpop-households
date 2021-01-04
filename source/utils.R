@@ -39,7 +39,7 @@ run_analysis_bq <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -55,7 +55,7 @@ run_analysis_bq <- function(bq_model,
                                    p_vars = ncol(X),  # number of variables to adjust for
                                    X = X,# model matrix,
                                    inf_out = ana_dat_expand$inf_out, # infected? 0,1 
-                                   inf_in_n = ana_dat_expand$inf_in_n, # total symptomatically infected the generation before "i" was infected
+                                   inf_in_n = ana_dat_expand$inf_in_n, # total infected the generation before "i" was infected
                                    avoid_in_n = ana_dat_expand$avoid_in_n,
                                    gen = ana_dat_expand$gen,# generation each is infected in
                                    set_per_ind = ana_dat_expand$set_id,# set id of each row
@@ -64,7 +64,9 @@ run_analysis_bq <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -76,7 +78,7 @@ run_analysis_bq <- function(bq_model,
                                    N_set = max(ana_dat_expand$set_id),#number of sets 
                                    N_hh = max(ana_dat_expand$household_id),#number of HHs in the survey
                                    inf_out = ana_dat_expand$inf_out, # infected?0,1
-                                   inf_in_n = ana_dat_expand$inf_in_n,# total symptomatically infected the generation before "i" was infected
+                                   inf_in_n = ana_dat_expand$inf_in_n,# total infected the generation before "i" was infected
                                    avoid_in_n = ana_dat_expand$avoid_in_n,
                                    gen = ana_dat_expand$gen,# generation each is infected in
                                    set_per_ind = ana_dat_expand$set_id,# set id of each row
@@ -85,7 +87,9 @@ run_analysis_bq <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }
@@ -121,7 +125,7 @@ run_analysis_bq_contact <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -149,7 +153,9 @@ run_analysis_bq_contact <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -170,7 +176,9 @@ run_analysis_bq_contact <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }
@@ -208,7 +216,7 @@ run_analysis_bq_infector <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -242,7 +250,9 @@ run_analysis_bq_infector <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -272,7 +282,9 @@ run_analysis_bq_infector <- function(bq_model,
                                    first_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=min(set_id))%>% pull(tmp),#first set id of a hh
                                    last_setid_per_hh = ana_dat_expand %>% group_by(household_id) %>% summarise(tmp=max(set_id))%>% pull(tmp),#last set id of a hh
                                    hhsize = ana_dat_expand %>% distinct(household_id, hh_size) %>% pull(hh_size),#hhsize per household
-                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp)# row number of the start of each set
+                                   row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }
@@ -308,7 +320,7 @@ run_analysis_bq_sym_infector <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -364,7 +376,9 @@ run_analysis_bq_sym_infector <- function(bq_model,
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
                                    sym = ana_dat_expand$symptom_any_mod, # symptom status of each person
-                                   sym_age = 10*ana_dat_expand$symptom_any_mod + as.numeric(factor(ana_dat_expand$age_cat,levels=c("5-9","10-19","20-49","50-64","65+"))) # identifier of symptom and age category of each person
+                                   sym_age = 10*ana_dat_expand$symptom_any_mod + as.numeric(factor(ana_dat_expand$age_cat,levels=c("5-9","10-19","20-49","50-64","65+"))), # identifier of symptom and age category of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen))%>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -407,7 +421,9 @@ run_analysis_bq_sym_infector <- function(bq_model,
                                    row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
-                                   sym_age = 10*ana_dat_expand$symptom_any_mod + as.numeric(factor(ana_dat_expand$age_cat,levels=c("5-9","10-19","20-49","50-64","65+")))# identifier of symptom and age category of each person
+                                   sym_age = 10*ana_dat_expand$symptom_any_mod + as.numeric(factor(ana_dat_expand$age_cat,levels=c("5-9","10-19","20-49","50-64","65+"))),# identifier of symptom and age category of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }
@@ -440,7 +456,7 @@ run_analysis_bq_sym <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -480,7 +496,9 @@ run_analysis_bq_sym <- function(bq_model,
                                    row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
-                                   sym = ana_dat_expand$symptom_any_mod # symptom status of each person
+                                   sym = ana_dat_expand$symptom_any_mod, # symptom status of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -507,7 +525,9 @@ run_analysis_bq_sym <- function(bq_model,
                                    row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
-                                   sym = ana_dat_expand$symptom_any_mod # symptom status of each person
+                                   sym = ana_dat_expand$symptom_any_mod, # symptom status of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }
@@ -541,7 +561,7 @@ run_analysis_bq_sym_contact <- function(bq_model,
     # create individual id (1 to 4534), household id (1 to 2267), set id (1 to 3287)
     mutate(household_id=as.numeric(as.factor(Household_codbar)),
            individual_id=as.numeric(as.factor(ind_id/10+Household_codbar)),
-           set_id=as.numeric(as.factor(set/1000+Household_codbar)),
+           set_id=as.numeric(as.factor(set/10000+Household_codbar)),
            row_id = row_number()) 
   
   # create model matrix based on individual level characteristics that Q and B are based on
@@ -584,7 +604,9 @@ run_analysis_bq_sym_contact <- function(bq_model,
                                    row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
-                                   sym = ana_dat_expand$symptom_any_mod  # symptom status of each person
+                                   sym = ana_dat_expand$symptom_any_mod,  # symptom status of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }else{
@@ -613,7 +635,9 @@ run_analysis_bq_sym_contact <- function(bq_model,
                                    row_num_first = ana_dat_expand %>% group_by(set_id) %>% summarise(tmp=min(row_id))%>% pull(tmp),# row number of the start of each set
                                    max_infectors = max(ana_dat_expand$inf_in_n),#max number of potential infectors among all
                                    infector_rowid_matrix = infector_rowid_matrix,#potential infectors' rowid per person
-                                   sym = ana_dat_expand$symptom_any_mod   # symptom status of each person
+                                   sym = ana_dat_expand$symptom_any_mod,   # symptom status of each person
+                                   max_gen_per_set = ana_dat_expand %>% mutate(gen=if_else(gen==9999,-9999,gen)) %>% 
+                                     group_by(set_id) %>% summarise(tmp=max(gen)) %>% pull(tmp) # max generation per set
                          ),
                          ...)
   }

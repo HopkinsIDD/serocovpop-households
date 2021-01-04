@@ -2,6 +2,7 @@
 ## viral introductions and subsequent transmission events within household
 ## for various final sizes j (aka total # infected in a HH) and household sizes k
 
+
 load.generation.comb <- function(){
   library(gtools)
   library(dplyr)
@@ -58,7 +59,7 @@ load.generation.comb <- function(){
     return(rc)
   }
   
-  # create input to stan based on output of assign_gens
+  # creat input to stan based on output of assign_gens
   create_stan_input_kk_hh <- function(dat){
     gen <- as.vector(t(dat))
     inf_out <- as.vector(t(dat) == 0)
@@ -83,6 +84,7 @@ load.generation.comb <- function(){
     return(output)
   }
   
+  
   ## generate all possible sequence of viral intro and subsequent transmission events within hh from j/k households
   ## j = number infected, k = hhsize
   
@@ -99,28 +101,34 @@ load.generation.comb <- function(){
   m13 <- get_mjk(1,3,m11)
   m14 <- get_mjk(1,4,m11)
   m15 <- get_mjk(1,5,m11)
+  m16 <- get_mjk(1,6,m11)
   
   m22 <- create_stan_input_kk_hh(assign_gens(1, c(NA,NA), n_inf=2))
   m23 <- get_mjk(2,3,m22)
   m24 <- get_mjk(2,4,m22)
   m25 <- get_mjk(2,5,m22)
+  m26 <- get_mjk(2,6,m22)
   
   m33 <- create_stan_input_kk_hh(assign_gens(1,c(NA,NA,NA), n_inf = 3))
   m34 <- get_mjk(3,4,m33)
   m35 <- get_mjk(3,5,m33)
+  m36 <- get_mjk(3,6,m33)
   
   m44 <- create_stan_input_kk_hh(assign_gens(1,c(NA,NA,NA,NA), n_inf = 4))
   m45 <- get_mjk(4,5,m44)
+  m46 <- get_mjk(4,6,m44)
   
   m55 <- create_stan_input_kk_hh(assign_gens(1,c(NA,NA,NA,NA,NA), n_inf = 5))
+  m56 <- get_mjk(5,6,m55)
   
+  m66 <- create_stan_input_kk_hh(assign_gens(1,c(NA,NA,NA,NA,NA,NA), n_inf = 6))
   ## combine everything to one dataset
   dat_comb <- rbind(m01,m11,
                     m02,m12,m22,
                     m03,m13,m23,m33,
                     m04,m14,m24,m34,m44,
-                    m05,m15,m25,m35,m45,m55, #no m45 in gva
-                    m06, #only m06 exists in gva
+                    m05,m15,m25,m35,m45,m55, 
+                    m06,m16,m26,m36,m46,m56,m66, 
                     m07) #only m07 exists gva
   return(dat_comb)
 }
