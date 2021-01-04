@@ -42,6 +42,7 @@ data {
   int infector_rowid_matrix [N_survey_expand,max_infectors];// rowid of all potential infectors of a hh member, depending on the sequences of viral intro and trans events within
   int sym_age [N_survey_expand]; // symptom status and age category of each ind ordered by row_id
   int sym [N_survey_expand]; // symptom status of each ind ordered by row_id
+  int max_gen_per_set [N_set]; // maximum generation of each set
 }
 
 parameters {
@@ -134,7 +135,8 @@ model {
 }
 
 generated quantities {
- int set_id [N_hh];//set id of the one set drawn from each household
+  int set_id [N_hh];//set id of the one set drawn from each household
+  int max_gen [N_hh]; //maximum generation of each simulated set
   int cat [N_hh];
   int cat_sym [N_ind];
   int cat_tmp;
@@ -147,13 +149,17 @@ generated quantities {
     int num_sets_per_hh = last_setid_per_hh[i] - first_setid_per_hh[i] + 1; 
     // placeholder of likelihood from all sets of a household
     vector [num_sets_per_hh] probs; 
+    vector [num_sets_per_hh] log_probs; 
     for (j in 1:num_sets_per_hh) {
       probs[j] = set_probs[first_setid_per_hh[i] + j - 1];
+      log_probs[j] = log(probs[j]);
     }
     // set id of the one set drawn from each household
-    cat_tmp = categorical_rng(softmax(probs));
+    cat_tmp = categorical_rng(softmax(log_probs));
     set_id[i] = first_setid_per_hh[i] + cat_tmp - 1;
     cat[i] = cat_tmp;
+    // get maximum generation of the selected set
+    max_gen[i] = max_gen_per_set[set_id[i]];
     // prob of being infected from a symptomatic person
     for (k in 1:hhsize[i]){ // for each person in that set
       int rowid = row_num_first[set_id[i]] + k - 1; // row number of that person
