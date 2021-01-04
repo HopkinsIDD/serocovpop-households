@@ -547,7 +547,7 @@ sero_dat_expand_all <- sero_dat_expand_all %>% mutate(inf_in_n_sym = inf_in_n_sy
 ```
 
 ### First generate stan model output for all 9 models + other sensitivity analyses
-```{r model output, eval=F}
+```{r model output}
 # model 0, B,Q do not adjust for individual characteristics
 bq_model <- stan_model(here("Stan/serosurvey-analysis-bq.stan"))
 bq_seropos_null <- run_analysis_bq(bq_model=bq_model,
@@ -853,7 +853,7 @@ bq_seropos_symp_contact_all <- run_analysis_bq_sym_contact(bq_model=bq_model_con
 
 
 ### or, load pregenerated stan model output 
-```{r load model output}
+```{r load model output, eval=F}
 # load model output 1-9
 bq_seropos_null <- readRDS(here("generated_data/HHtransdata/bq_seropos_null.Rds")) # model0
 bq_seropos_ageonly <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly.Rds")) # model1
