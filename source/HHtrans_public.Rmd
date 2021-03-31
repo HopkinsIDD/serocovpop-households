@@ -704,18 +704,10 @@ bq_seropos_infector <- run_analysis_bq_infector(bq_model=bq_model_infector,
 
 # the rest are sensitivity analyses that are presented in 
 # supplemental figures/tables, but not presented in supplemental table 2
-# model 5, but change IgG seropositive cutoff to 1.5 (results shown in figure s4)
-
-hh_del <- sero_dat_expand_1d5 %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
-if(length(hh_del)==0) {hh_del<-0}
-bq_seropos_symp_contact_1d5 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
-                                                                    dat_expand=sero_dat_expand_1d5 %>% 
-                                                                      mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                                                      mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                                                      filter(!Household_codbar%in%hh_del),
+# model , but change IgG seropositive cutoff to 1.5 (results shown in figure s4)
+bq_seropos_symp_contact_1d5 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
+                                                                    dat_expand=sero_dat_expand_1d5,
                                                                     coef_eqn="sex + age_cat",
-                                                                    coef_eqn1="sex + age_cat + age2064:reduit_famavg +
-                                                                    age65up:reduit_famavg",
                                                                     chains=n_chains,
                                                                     iter=n_iter,
                                                                     warmup=n_warmup,
@@ -725,18 +717,11 @@ bq_seropos_symp_contact_1d5 <- run_analysis_bq_sym_contact(bq_model=bq_model_con
                                                                     pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
-# model 5, but restrict data to first 6 weeks (results shown in figure s5)
-hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
-if(length(hh_del)==0) {hh_del<-0}
-bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
+# model 4, but restrict data to first 6 weeks (results shown in figure s5)
+bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
                                                                     dat_expand=sero_dat_expand %>% 
-                                                                      mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                                                      mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                                                      filter(!Household_codbar%in%hh_del) %>%
                                                                       filter(as.character(week)<=6),
                                                                     coef_eqn="sex + age_cat",
-                                                                    coef_eqn1="sex + age_cat + age2064:reduit_famavg +
-                                                                    age65up:reduit_famavg",
                                                                     chains=n_chains,
                                                                     iter=n_iter,
                                                                     warmup=n_warmup,
@@ -746,17 +731,11 @@ bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_
                                                                     pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
-# model 5, but restrict data to last 6 weeks (results shown in figure s5)
-hh_del <- sero_dat_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
-if(length(hh_del)==0) {hh_del<-0}
-bq_seropos_symp_contact_last6 <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
+# model 4, but restrict data to last 6 weeks (results shown in figure s5)
+bq_seropos_symp_contact_last6 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
                                                                     dat_expand=sero_dat_expand %>% 
-                                                                      mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                                                      mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                                                      filter(!Household_codbar%in%hh_del) %>%
                                                                       filter(as.character(week)>6),
                                                                     coef_eqn="sex + age_cat",
-                                                                    coef_eqn1="sex + age_cat + age2064:reduit_famavg + age65up:reduit_famavg",
                                                                     chains=n_chains,
                                                                     iter=n_iter,
                                                                     warmup=n_warmup,
