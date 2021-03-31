@@ -792,19 +792,11 @@ bq_seropos_ageonly_last6 <- run_analysis_bq(bq_model=bq_model,
 
 
 
-# model 5, but change definition of symptomatic cases to only those showing symptoms more than two weeks before enrollment
+# model 4, but change definition of symptomatic cases to only those showing symptoms more than two weeks before enrollment
 
-
-hh_del <- sero_dat_sym_expand %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
-if(length(hh_del)==0) {hh_del<-0}
-bq_seropos_symp_contact_2wk <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
-                                       dat_expand=sero_dat_sym_expand %>% 
-                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                         filter(Household_codbar!=hh_del),
+bq_seropos_symp_contact_2wk <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                       dat_expand=sero_dat_sym_expand ,
                                        coef_eqn="sex + age_cat",
-                                       coef_eqn1="sex + age_cat + 
-                                       age2064:reduit_famavg + age65up:reduit_famavg",
                                        chains=n_chains,
                                        iter=n_iter,
                                        warmup=n_warmup,
@@ -813,17 +805,10 @@ bq_seropos_symp_contact_2wk <- run_analysis_bq_sym_contact(bq_model=bq_model_con
                                        save_stan=T,
                                        pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
 
-# model 5, but including households only missing serostatus of 0-4 years old
-hh_del <- sero_dat_expand_withkids %>% filter(is.na(reduit_famavg)) %>% pull(Household_codbar)
-if(length(hh_del)==0) {hh_del<-0}
-bq_seropos_symp_contact_withkids <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
-                                       dat_expand=sero_dat_expand_withkids %>% 
-                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) %>% 
-                                         filter(Household_codbar!=hh_del),
+# model 4, but including households only missing serostatus of 0-4 years old
+bq_seropos_symp_contact_withkids <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                       dat_expand=sero_dat_expand_withkids,
                                        coef_eqn="sex + age_cat",
-                                       coef_eqn1="sex + age_cat + 
-                                       age2064:reduit_famavg + age65up:reduit_famavg",
                                        chains=n_chains,
                                        iter=n_iter,
                                        warmup=n_warmup,
@@ -833,14 +818,10 @@ bq_seropos_symp_contact_withkids <- run_analysis_bq_sym_contact(bq_model=bq_mode
                                        pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
 
 
-# model 5, but include all enrolled households
-bq_seropos_symp_contact_all <- run_analysis_bq_sym_contact(bq_model=bq_model_contact_sym,
-                                       dat_expand=sero_dat_expand_all %>% 
-                                         mutate(age2064 = ifelse(age_cat %in% c("20-49","50-64"),1,0)) %>% 
-                                         mutate(age65up = ifelse(age_cat=="65+",1,0)) ,
+# model 4, but include all enrolled households
+bq_seropos_symp_contact_all <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                       dat_expand=sero_dat_expand_all ,
                                        coef_eqn="sex + age_cat",
-                                       coef_eqn1="sex + age_cat + 
-                                       age2064:reduit_famavg + age65up:reduit_famavg",
                                        chains=n_chains,
                                        iter=n_iter,
                                        warmup=n_warmup,
@@ -2161,7 +2142,7 @@ plot.dat.week %>%
 
 ```{r sfig8, fig.height=3.5, fig.width=5}
 
-bq_pars <- rstan::extract(bq_seropos_symp_contact$stan_est)
+bq_pars <- rstan::extract(bq_seropos_symp$stan_est)
 
 out_dat <- NULL # infected outside
 out_dat2 <- NULL # infected outside for those in HHsize of 2
