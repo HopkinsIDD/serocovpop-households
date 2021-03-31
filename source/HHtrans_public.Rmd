@@ -2209,9 +2209,9 @@ data.frame(inf=1-out_dat,hhsize="combined") %>%
 ```{r sfig9, fig.height=3.5, fig.width=5}
 
 ## or if max generation is pre generated
-bq_pars_seropos_symp_contact <- extract(bq_seropos_symp_contact$stan_est)
-gen <- bq_pars_seropos_symp_contact$max_gen
-hhcase <- bq_seropos_symp_contact$input_data %>%  distinct(household_id, hh_inf_n) %>% pull(hh_inf_n)
+bq_pars_seropos_symp <- extract(bq_seropos_symp$stan_est)
+gen <- bq_pars_seropos_symp$max_gen
+hhcase <- bq_seropos_symp$input_data %>%  distinct(household_id, hh_inf_n) %>% pull(hh_inf_n)
 
 g_dat2 <- matrix(nrow=3000,ncol=5) # max generation in HHsize of 2
 g_dat3 <- matrix(nrow=3000,ncol=5) # max generation for those in HHsize of 3
