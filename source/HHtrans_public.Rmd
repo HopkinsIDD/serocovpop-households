@@ -705,75 +705,72 @@ bq_seropos_infector <- run_analysis_bq_infector(bq_model=bq_model_infector,
 # the rest are sensitivity analyses that are presented in 
 # supplemental figures/tables, but not presented in supplemental table 2
 # model , but change IgG seropositive cutoff to 1.5 (results shown in figure s4)
-bq_seropos_symp_contact_1d5 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
-                                                                    dat_expand=sero_dat_expand_1d5,
-                                                                    coef_eqn="sex + age_cat",
-                                                                    chains=n_chains,
-                                                                    iter=n_iter,
-                                                                    warmup=n_warmup,
-                                                                    control=list(max_treedepth=n_treedepth),
-                                                                    save_warmup=F,
-                                                                    save_stan=T, 
-                                                                    pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
+bq_seropos_symp_1d5 <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                                  dat_expand=sero_dat_expand_1d5,
+                                                  coef_eqn="sex + age_cat",
+                                                  chains=n_chains,
+                                                  iter=n_iter,
+                                                  warmup=n_warmup,
+                                                  control=list(max_treedepth=n_treedepth),
+                                                  save_warmup=F,
+                                                  save_stan=T, 
+                                                  pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
 # model 4, but restrict data to first 6 weeks (results shown in figure s5)
-bq_seropos_symp_contact_first6 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
-                                                                    dat_expand=sero_dat_expand %>% 
-                                                                      filter(as.character(week)<=6),
-                                                                    coef_eqn="sex + age_cat",
-                                                                    chains=n_chains,
-                                                                    iter=n_iter,
-                                                                    warmup=n_warmup,
-                                                                    control=list(max_treedepth=n_treedepth),
-                                                                    save_warmup=F,
-                                                                    save_stan=T, 
-                                                                    pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
+bq_seropos_symp_first6 <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                              dat_expand=sero_dat_expand %>% 
+                                                filter(as.character(week)<=6),
+                                              coef_eqn="sex + age_cat",
+                                              chains=n_chains,
+                                              iter=n_iter,
+                                              warmup=n_warmup,
+                                              control=list(max_treedepth=n_treedepth),
+                                              save_warmup=F,
+                                              save_stan=T, 
+                                              pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
 # model 4, but restrict data to last 6 weeks (results shown in figure s5)
-bq_seropos_symp_contact_last6 <- run_analysis_bq_sym_contact(bq_model=bq_model_symp,
-                                                                    dat_expand=sero_dat_expand %>% 
-                                                                      filter(as.character(week)>6),
-                                                                    coef_eqn="sex + age_cat",
-                                                                    chains=n_chains,
-                                                                    iter=n_iter,
-                                                                    warmup=n_warmup,
-                                                                    control=list(max_treedepth=n_treedepth),
-                                                                    save_warmup=F,
-                                                                    save_stan=T, 
-                                                                    pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
+bq_seropos_symp_last6 <- run_analysis_bq_sym(bq_model=bq_model_symp,
+                                            dat_expand=sero_dat_expand %>% 
+                                              filter(as.character(week)>6),
+                                            coef_eqn="sex + age_cat",
+                                            chains=n_chains,
+                                            iter=n_iter,
+                                            warmup=n_warmup,
+                                            control=list(max_treedepth=n_treedepth),
+                                            save_warmup=F,
+                                            save_stan=T, 
+                                            pars=c("beta_B","beta_Q","alpha_sym","log_lik"))
 
 
 # model 1, but restrict data to first 6 weeks (results shown in figure s4)
-
 bq_seropos_ageonly_first6 <- run_analysis_bq(bq_model=bq_model,
-                                      dat_expand=sero_dat_expand%>% filter(as.character(week)<=6),
-                                      coef_eqn="age_cat",
-                                      chains=n_chains,
-                                      iter=n_iter,
-                                      warmup=n_warmup,
-                                      control=list(max_treedepth=n_treedepth),
-                                      save_warmup=F,
-                                      save_stan=T, pars=c("beta_B","beta_Q","log_lik"))
+                                            dat_expand=sero_dat_expand%>% filter(as.character(week)<=6),
+                                            coef_eqn="age_cat",
+                                            chains=n_chains,
+                                            iter=n_iter,
+                                            warmup=n_warmup,
+                                            control=list(max_treedepth=n_treedepth),
+                                            save_warmup=F,
+                                            save_stan=T, pars=c("beta_B","beta_Q","log_lik"))
 
 # model 1, but restrict data to last 6 weeks (results shown in figure s4)
-
 bq_seropos_ageonly_last6 <- run_analysis_bq(bq_model=bq_model,
-                                      dat_expand=sero_dat_expand%>% filter(as.character(week)>6),
-                                      coef_eqn="age_cat",
-                                      chains=n_chains,
-                                      iter=n_iter,
-                                      warmup=n_warmup,
-                                      control=list(max_treedepth=n_treedepth),
-                                      save_warmup=F,
-                                      save_stan=T, pars=c("beta_B","beta_Q","log_lik"))
+                                            dat_expand=sero_dat_expand%>% filter(as.character(week)>6),
+                                            coef_eqn="age_cat",
+                                            chains=n_chains,
+                                            iter=n_iter,
+                                            warmup=n_warmup,
+                                            control=list(max_treedepth=n_treedepth),
+                                            save_warmup=F,
+                                            save_stan=T, pars=c("beta_B","beta_Q","log_lik"))
 
 
 
 # model 4, but change definition of symptomatic cases to only those showing symptoms more than two weeks before enrollment
-
-bq_seropos_symp_contact_2wk <- run_analysis_bq_sym(bq_model=bq_model_symp,
+bq_seropos_symp_2wk <- run_analysis_bq_sym(bq_model=bq_model_symp,
                                        dat_expand=sero_dat_sym_expand ,
                                        coef_eqn="sex + age_cat",
                                        chains=n_chains,
@@ -785,7 +782,7 @@ bq_seropos_symp_contact_2wk <- run_analysis_bq_sym(bq_model=bq_model_symp,
                                        pars=c("beta_Q","beta_B","alpha_sym","log_lik"))
 
 # model 4, but including households only missing serostatus of 0-4 years old
-bq_seropos_symp_contact_withkids <- run_analysis_bq_sym(bq_model=bq_model_symp,
+bq_seropos_symp_withkids <- run_analysis_bq_sym(bq_model=bq_model_symp,
                                        dat_expand=sero_dat_expand_withkids,
                                        coef_eqn="sex + age_cat",
                                        chains=n_chains,
@@ -798,7 +795,7 @@ bq_seropos_symp_contact_withkids <- run_analysis_bq_sym(bq_model=bq_model_symp,
 
 
 # model 4, but include all enrolled households
-bq_seropos_symp_contact_all <- run_analysis_bq_sym(bq_model=bq_model_symp,
+bq_seropos_symp_all <- run_analysis_bq_sym(bq_model=bq_model_symp,
                                        dat_expand=sero_dat_expand_all ,
                                        coef_eqn="sex + age_cat",
                                        chains=n_chains,
@@ -827,14 +824,14 @@ bq_seropos_symp_infector_only <- readRDS(here("generated_data/HHtransdata/bq_ser
 bq_seropos_infector <- readRDS(here("generated_data/HHtransdata/bq_seropos_infector.Rds")) # model9
 
 # load sensitivity analysis
-bq_seropos_symp_contact_1d5 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_1d5.Rds"))
-bq_seropos_symp_contact_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_first6.Rds"))
-bq_seropos_symp_contact_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_reduit_famavg_sym_agecat_last6.Rds"))
+bq_seropos_symp_1d5 <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_1d5.Rds"))
+bq_seropos_symp_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_first6.Rds"))
+bq_seropos_symp_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_last6.Rds"))
 bq_seropos_ageonly_first6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_first6.Rds"))
 bq_seropos_ageonly_last6 <- readRDS(here("generated_data/HHtransdata/bq_seropos_ageonly_last6.Rds"))
-bq_seropos_symp_contact_2wk <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_2wk.Rds")) 
-bq_seropos_symp_contact_withkids <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_withkids.Rds")) 
-bq_seropos_symp_contact_all <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_contact_all.Rds")) 
+bq_seropos_symp_2wk <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_2wk.Rds")) 
+bq_seropos_symp_withkids <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_withkids.Rds")) 
+bq_seropos_symp_all <- readRDS(here("generated_data/HHtransdata/bq_seropos_symp_all.Rds")) 
 ```
 
 
@@ -1587,21 +1584,21 @@ summary(bq_seropos_symp_contact$stan_est, pars="beta_B")[[1]] %>%
   replace_na(list(`50%` = 0)) 
 
 
-pOR_1_data_sens <- summary(bq_seropos_symp_contact_1d5$stan_est, pars="beta_B")[[1]] %>% 
+pOR_1_data_sens <- summary(bq_seropos_symp_1d5$stan_est, pars="beta_B")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
                  "age2064:reduced_contact", "age65+:reduced_contact")) %>%
   filter(param!="Intercept") %>%
   mutate(BQ="Extra-household transmission") %>%
   bind_rows(
-    summary(bq_seropos_symp_contact_1d5$stan_est, pars="beta_Q")[[1]] %>% 
+    summary(bq_seropos_symp_1d5$stan_est, pars="beta_Q")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
       filter(param!="Intercept") %>%
       mutate(BQ="Household transmission")
   ) %>% 
   bind_rows(
-    summary(bq_seropos_symp_contact_1d5$stan_est, pars="alpha_sym")[[1]] %>% 
+    summary(bq_seropos_symp_1d5$stan_est, pars="alpha_sym")[[1]] %>% 
       as_tibble() %>% 
       mutate(param=c("sym")) %>%
       mutate(BQ="Household transmission")
@@ -1707,21 +1704,21 @@ ggarrange( ggarrange(pOR_4age_1d5 + coord_flip(), pOR_4sex_1d5 + coord_flip(), n
 ```{r sfig5, fig.height = 5, fig.width = 9}
 
 
-pOR_1_data_first6 <- summary(bq_seropos_symp_contact_first6$stan_est, pars="beta_B")[[1]] %>% 
+pOR_1_data_first6 <- summary(bq_seropos_symp_first6$stan_est, pars="beta_B")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
                  "age2064:reduced_contact", "age65+:reduced_contact")) %>%
   filter(param!="Intercept") %>%
   mutate(BQ="Extra-household transmission") %>%
   bind_rows(
-    summary(bq_seropos_symp_contact_first6$stan_est, pars="beta_Q")[[1]] %>% 
+    summary(bq_seropos_symp_first6$stan_est, pars="beta_Q")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
       filter(param!="Intercept") %>%
       mutate(BQ="Household transmission")
   ) %>% 
   bind_rows(
-    summary(bq_seropos_symp_contact_first6$stan_est, pars="alpha_sym")[[1]] %>% 
+    summary(bq_seropos_symp_first6$stan_est, pars="alpha_sym")[[1]] %>% 
       as_tibble() %>% 
       mutate(param=c("sym")) %>%
       mutate(BQ="Household transmission")
@@ -1739,21 +1736,21 @@ pOR_1_data_first6 <- summary(bq_seropos_symp_contact_first6$stan_est, pars="beta
 
 
 
-pOR_1_data_last6 <- summary(bq_seropos_symp_contact_last6$stan_est, pars="beta_B")[[1]] %>% 
+pOR_1_data_last6 <- summary(bq_seropos_symp_last6$stan_est, pars="beta_B")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
                  "age2064:reduced_contact", "age65+:reduced_contact")) %>%
   filter(param!="Intercept") %>%
   mutate(BQ="Extra-household transmission") %>%
   bind_rows(
-    summary(bq_seropos_symp_contact_last6$stan_est, pars="beta_Q")[[1]] %>% 
+    summary(bq_seropos_symp_last6$stan_est, pars="beta_Q")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
       filter(param!="Intercept") %>%
       mutate(BQ="Household transmission")
   ) %>% 
   bind_rows(
-    summary(bq_seropos_symp_contact_last6$stan_est, pars="alpha_sym")[[1]] %>% 
+    summary(bq_seropos_symp_last6$stan_est, pars="alpha_sym")[[1]] %>% 
       as_tibble() %>% 
       mutate(param=c("sym")) %>%
       mutate(BQ="Household transmission")
@@ -1902,21 +1899,21 @@ summary(bq_seropos_symp_contact$stan_est, pars="beta_B")[[1]] %>%
   replace_na(list(`50%` = 0)) 
 
 
-pOR_1_data_sens_2wk <- summary(bq_seropos_symp_contact_2wk$stan_est, pars="beta_B")[[1]] %>% 
+pOR_1_data_sens_2wk <- summary(bq_seropos_symp_2wk$stan_est, pars="beta_B")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male", "5-9", "10-19", "50-64", "65+",
                  "age2064:reduced_contact", "age65+:reduced_contact")) %>%
   filter(param!="Intercept") %>%
   mutate(BQ="Extra-household transmission") %>%
   bind_rows(
-    summary(bq_seropos_symp_contact_1d5$stan_est, pars="beta_Q")[[1]] %>% 
+    summary(bq_seropos_symp_1d5$stan_est, pars="beta_Q")[[1]] %>% 
   as_tibble() %>% 
   mutate(param=c("Intercept", "Male","5-9","10-19" , "50-64", "65+")) %>%
       filter(param!="Intercept") %>%
       mutate(BQ="Household transmission")
   ) %>% 
   bind_rows(
-    summary(bq_seropos_symp_contact_1d5$stan_est, pars="alpha_sym")[[1]] %>% 
+    summary(bq_seropos_symp_1d5$stan_est, pars="alpha_sym")[[1]] %>% 
       as_tibble() %>% 
       mutate(param=c("sym")) %>%
       mutate(BQ="Household transmission")
