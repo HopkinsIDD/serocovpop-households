@@ -31,13 +31,15 @@ reload_source()
 
 ```{r load_data}
 ## cleaned household serosurvey data for replicating results in the manuscript
+## Data not on git
 #dat_full <-  read.csv(here("generated_data/dat_full.csv"),stringsAsFactors=FALSE) 
 #dat_full_kids <-  read.csv(here("generated_data/dat_full_withkids.csv"),stringsAsFactors=FALSE) 
 #dat_full_all <-  read.csv(here("generated_data/dat_full_all.csv"),stringsAsFactors=FALSE) 
+
 ## dummy data
 dat_full <- read.csv(here("data/dummy_dat_full.csv"),stringsAsFactors=FALSE)
-dat_full_kids <- dat_full # real dat_full and dat_full_kids are not the same. 
-dat_full_all <- dat_full # real dat_full and dat_full_kids are not the same.
+dat_full_kids <- dat_full
+dat_full_all <- dat_full 
 ```
 
 ```{r staninput_main_analysis}
