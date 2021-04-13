@@ -1736,7 +1736,7 @@ pOR_1_data_sens_2wk <- summary(bq_seropos_symp_2wk$stan_est, pars="beta_B")[[1]]
 
 pOR_1_data_combined_sens3 <- pOR_1_data %>% mutate(symptom_def="All symptomatic infections") %>% 
   bind_rows(
-    pOR_1_data_sens_2wk %>% mutate(symptom_def="Only those with symptom onset\nover 2weeks from enrollment")
+    pOR_1_data_sens_2wk %>% mutate(symptom_def="Symptom onset >2wks\nfrom enrollment")
   )
 
 ## age
